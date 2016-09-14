@@ -32,25 +32,11 @@ object ProjectMacro extends Properties("ProjectMacro") {
       throw e
   }
 
-  property("Explicit type on lazy val supported") = secure {
-    check(aa, "aa", "aa")
-  }
-
-  property("Explicit type on val supported") = secure {
-    check(a, "a", "a")
-  }
-
-  property("lazy vals supported") = secure {
-    check(p, "p", "p")
-  }
-
-  property("plain vals supported") = secure {
-    check(x, "x", "x")
-  }
-
-  property("Directory overridable") = secure {
-    check(z, "z", "dir")
-  }
+  property("Explicit type on lazy val supported") = secure(check(aa, "aa", "aa"))
+  property("Explicit type on val supported") = secure(check(a, "a", "a"))
+  property("lazy vals supported") = secure(check(p, "p", "p"))
+  property("plain vals supported") = secure(check(x, "x", "x"))
+  property("Directory overridable") = secure(check(z, "z", "dir"))
 
   def check(p: Project, id: String, dir: String): Prop =
     {
