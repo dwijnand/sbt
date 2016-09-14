@@ -19,6 +19,8 @@ object Dependencies {
   lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.11.4"
   lazy val specs2 = "org.specs2" %% "specs2" % "2.3.11"
   lazy val junit = "junit" % "junit" % "4.11"
+  val pcplod = "org.ensime" %% "pcplod" % "1.0.0"
+
   lazy val launcherInterface = "org.scala-sbt" % "launcher-interface" % "1.0.0-M1"
   lazy val rawLauncher = "org.scala-sbt" % "launcher" % "1.0.0-M1"
   lazy val templateResolverApi = "org.scala-sbt" % "template-resolver" % "0.1"
@@ -34,7 +36,7 @@ object Dependencies {
   lazy val scalaXml = scala211Module("scala-xml", "1.0.1")
   lazy val scalaParsers = scala211Module("scala-parser-combinators", "1.0.1")
 
-  // Maven related dependnecy craziness
+  // Maven related dependency craziness
   //val mvnEmbedder = "org.apache.maven" % "maven-embedder" % mvnVersion
   val mvnWagonVersion = "2.4"
   val mvnVersion = "3.2.3"

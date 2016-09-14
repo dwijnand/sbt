@@ -58,6 +58,12 @@ def baseSettings: Seq[Setting[_]] =
 def testedBaseSettings: Seq[Setting[_]] =
   baseSettings ++ testDependencies
 
+def setupPcPlod(p: Project): Project = p.settings(
+  libraryDependencies += pcplod % Test,
+  fork in Test := true, // for pcplod, see ensime/pcplod#12
+  javaOptions in Test += "-Xmx1G"
+)
+
 
 val altLocalRepoName = "alternative-local"
 val altLocalRepoPath = sys.props("user.home") + "/.ivy2/sbt-alternative"
@@ -461,7 +467,7 @@ lazy val mainSettingsProj = (project in mainPath / "settings").
     testedBaseSettings,
     name := "Main Settings",
     libraryDependencies += sbinary
-  )
+  ) configure setupPcPlod
 
 // The main integration project for sbt.  It brings all of the Projsystems together, configures them, and provides for overriding conventions.
 lazy val mainProj = (project in mainPath).
@@ -470,7 +476,7 @@ lazy val mainProj = (project in mainPath).
     testedBaseSettings,
     name := "Main",
     libraryDependencies ++= scalaXml.value ++ Seq(launcherInterface)
-  )
+  ) configure setupPcPlod
 
 // Strictly for bringing implicits and aliases from subsystems into the top-level sbt namespace through a single package object
 //  technically, we need a dependency on all of mainProj's dependencies, but we don't do that since this is strictly an integration project

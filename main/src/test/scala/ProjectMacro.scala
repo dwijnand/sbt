@@ -1,5 +1,6 @@
 package sbt
 
+import org.ensime.pcplod._
 import org.scalacheck._
 import Prop._
 import Project.project
@@ -47,4 +48,26 @@ object ProjectMacro extends Properties("ProjectMacro") {
         (p.id == id) &&
         (p.base.getName == dir)
     }
+
+  property("no msgs") = pcCheck(_.messages ?= Nil)
+
+  property("aaa") = pcCheck(_.infoAt('aaa) ?= (Some(s"Build.aaa") -> Some("sbt.Project")))
+  property("p_a") = pcCheck(_.infoAt('p_a) ?= (Some("sbt.Project.project") -> Some("sbt.Project")))
+
+  property("bbb") = pcCheck(_.infoAt('bbb) ?= (Some(s"Build.bbb") -> Some("sbt.Project")))
+  property("p_b") = pcCheck(_.infoAt('p_b) ?= (Some("sbt.Project.project") -> Some("sbt.Project")))
+
+  property("ccc") = pcCheck(_.infoAt('ccc) ?= (Some(s"Build.ccc") -> Some("sbt.Project")))
+  property("p_c") = pcCheck(_.infoAt('p_c) ?= (Some("sbt.Project.project") -> Some("sbt.Project")))
+
+  property("ddd") = pcCheck(_.infoAt('ddd) ?= (Some(s"Build.ddd") -> Some("sbt.Project")))
+  property("p_d") = pcCheck(_.infoAt('p_d) ?= (Some("sbt.Project.project") -> Some("sbt.Project")))
+
+  // TODO: Add a setting and verify it's not also sbt.Project
+
+  def pcCheck(f: MrPlod => Prop): Prop = secure(withMrPlod("macros/Build.scala")(f))
+
+  implicit class MrPlodOps(val _mr: MrPlod) extends AnyVal {
+    def infoAt(p: Point) = (_mr.symbolAtPoint(p), _mr.typeAtPoint(p))
+  }
 }
