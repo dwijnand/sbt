@@ -9,6 +9,7 @@ package sbt
 
 import sbt.internal.{
   Act,
+  AddSbtPluginCommand,
   Aggregation,
   BuildStructure,
   BuildUnit,
@@ -192,6 +193,7 @@ object BuiltinCommands {
       setLogLevel,
       plugin,
       plugins,
+      AddSbtPluginCommand.cmd,
       writeSbtVersion,
       notifyUsersAboutShell,
       shell,
