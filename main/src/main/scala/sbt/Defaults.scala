@@ -364,16 +364,9 @@ object Defaults extends BuildCommon {
       ),
     scalaInstance := scalaInstanceTask.value,
     crossVersion := (if (crossPaths.value) CrossVersion.binary else Disabled()),
-    scalaVersion := {
-      val scalaV = scalaVersion.value
-      val sv = (sbtBinaryVersion in pluginCrossBuild).value
-      val isPlugin = sbtPlugin.value
-      if (isPlugin) {
-        scalaVersionFromSbtBinaryVersion(sv)
-      } else scalaV
-    },
-    sbtBinaryVersion in pluginCrossBuild := binarySbtVersion(
-      (sbtVersion in pluginCrossBuild).value),
+    setScalaVersion2,
+    sbtBinaryVersion in pluginCrossBuild :=
+      binarySbtVersion((sbtVersion in pluginCrossBuild).value),
     crossSbtVersions := Vector((sbtVersion in pluginCrossBuild).value),
     crossTarget := makeCrossTarget(target.value,
                                    scalaBinaryVersion.value,
@@ -385,8 +378,6 @@ object Defaults extends BuildCommon {
       IvyActions.cleanCachedResolutionCache(ivyModule.value, streams.value.log)
     },
     scalaCompilerBridgeSource := {
-      // This is a workaround for sbtVersion getting set to another value.
-      val sv = appConfiguration.value.provider.id.version
       if (ScalaInstance.isDotty(scalaVersion.value))
         // Maintained at https://github.com/lampepfl/dotty/tree/master/sbt-bridge
         ModuleID(scalaOrganization.value, "dotty-sbt-bridge", scalaVersion.value)
@@ -404,19 +395,36 @@ object Defaults extends BuildCommon {
       compileOrder :== CompileOrder.Mixed,
       javacOptions :== Nil,
       scalacOptions :== Nil,
-      scalaVersion := appConfiguration.value.provider.scalaProvider.version,
+      setScalaVersion1,
+      scala29 := "2.9.3",
+      scala210 := "2.10.6",
+      scala211 := "2.11.11",
+      scala212 := "2.12.2",
+      scala213 := "2.13.0-M1",
       derive(crossScalaVersions := Seq(scalaVersion.value)),
       derive(compilersSetting),
       derive(scalaBinaryVersion := binaryScalaVersion(scalaVersion.value))
     ))
 
-  private[sbt] def scalaVersionFromSbtBinaryVersion(sv: String): String =
-    VersionNumber(sv) match {
-      case VersionNumber(Seq(0, 12, _*), _, _) => "2.9.2"
-      case VersionNumber(Seq(0, 13, _*), _, _) => "2.10.6"
-      case VersionNumber(Seq(1, 0, _*), _, _)  => "2.12.2"
-      case _                                   => sys.error(s"Unsupported sbt binary version: $sv")
+  private[sbt] val setScalaVersion1 =
+    scalaVersion := appConfiguration.value.provider.scalaProvider.version
+
+  private[sbt] val setScalaVersion2 =
+    scalaVersion := {
+      val scalaV = scalaVersion.value
+      val isPlugin = sbtPlugin.value
+      val pluginScalaV = scalaVersionFromSbtBinaryVersion.value
+      if (isPlugin) pluginScalaV else scalaV
     }
+
+  private[sbt] def scalaVersionFromSbtBinaryVersion = Def setting (
+    VersionNumber(binarySbtVersion((sbtVersion in pluginCrossBuild).value)) match {
+      case VersionNumber(Seq(0, 12, _*), _, _) => scala29.value
+      case VersionNumber(Seq(0, 13, _*), _, _) => scala210.value
+      case VersionNumber(Seq(1, _, _*), _, _)  => scala212.value
+      case sv                                  => sys.error(s"Unsupported sbt binary version: $sv")
+    }
+  )
 
   def makeCrossSources(scalaSrcDir: File,
                        javaSrcDir: File,

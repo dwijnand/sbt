@@ -10,7 +10,6 @@ package sbt
 import sbt.internal.util.complete.{ Parser, DefaultParsers }
 import DefaultParsers._
 import sbt.Keys._
-import Project._
 import Scope.GlobalScope
 import Def.ScopedKey
 import sbt.internal.Load
@@ -31,17 +30,28 @@ private[sbt] object PluginCross {
         switchArgs & nextSpaced
       }
     }
+
     def crossExclude(s: Def.Setting[_]): Boolean =
       s.key match {
         case ScopedKey(Scope(_, _, pluginCrossBuild.key, _), sbtVersion.key) => true
-        case _                                                               => false
+        case ScopedKey(_, scalaVersion.key) => {
+          val posStr = s.positionString.fold("<no pos>")(identity)
+          println(s"Dropping scalaVersion setting(${Def displayFull s.key}) defined at $posStr")
+          true
+        }
+        case _ => false
       }
+
     Command.arb(requireSession(switchParser), pluginSwitchHelp) {
       case (state, (version, command)) =>
         val x = Project.extract(state)
         import x._
         state.log.info(s"Setting `sbtVersion in pluginCrossBuild` to $version")
-        val add = (sbtVersion in GlobalScope in pluginCrossBuild :== version) :: Nil
+        val add: List[Def.Setting[_]] =
+          (sbtVersion in GlobalScope in pluginCrossBuild :== version) ::
+            Defaults.setScalaVersion1 ::
+            Defaults.setScalaVersion2 ::
+            Nil
         val cleared = session.mergeSettings.filterNot(crossExclude)
         val newStructure = Load.reapply(cleared ++ add, structure)
         Project.setProject(session, newStructure, command :: state)
