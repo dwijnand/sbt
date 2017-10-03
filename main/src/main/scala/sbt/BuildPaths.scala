@@ -10,22 +10,16 @@ import sbt.io.{ GlobFilter, Path }
 import sbt.internal.util.AttributeKey
 
 object BuildPaths {
-  val globalBaseDirectory = AttributeKey[File](
-    "global-base-directory",
-    "The base directory for global sbt configuration and staging.",
-    DSetting)
+  val globalBaseDirectory = AttributeKey[File]("global-base-directory",
+    "The base directory for global sbt configuration and staging.", DSetting)
   val globalPluginsDirectory = AttributeKey[File]("global-plugins-directory",
-                                                  "The base directory for global sbt plugins.",
-                                                  DSetting)
+    "The base directory for global sbt plugins.", DSetting)
   val globalSettingsDirectory = AttributeKey[File]("global-settings-directory",
-                                                   "The base directory for global sbt settings.",
-                                                   DSetting)
+    "The base directory for global sbt settings.", DSetting)
   val stagingDirectory =
     AttributeKey[File]("staging-directory", "The directory for staging remote projects.", DSetting)
-  val dependencyBaseDirectory = AttributeKey[File](
-    "dependency-base-directory",
-    "The base directory for caching dependency resolution.",
-    DSetting)
+  val dependencyBaseDirectory = AttributeKey[File]("dependency-base-directory",
+    "The base directory for caching dependency resolution.", DSetting)
 
   val globalZincDirectory =
     AttributeKey[File]("global-zinc-directory", "The base directory for Zinc internals.", DSetting)
@@ -52,7 +46,7 @@ object BuildPaths {
 
   def getGlobalPluginsDirectory(state: State, globalBase: File): File =
     fileSetting(globalPluginsDirectory, GlobalPluginsProperty, defaultGlobalPlugins(globalBase))(
-      state)
+        state)
 
   def getGlobalSettingsDirectory(state: State, globalBase: File): File =
     fileSetting(globalSettingsDirectory, GlobalSettingsProperty, globalBase)(state)

@@ -224,9 +224,8 @@ object State {
       def runCmd(cmd: Exec, remainingCommands: List[Exec]) = {
         log.debug(s"> $cmd")
         f(cmd,
-          s.copy(remainingCommands = remainingCommands,
-                 currentCommand = Some(cmd),
-                 history = cmd :: s.history))
+          s.copy(remainingCommands = remainingCommands, currentCommand = Some(cmd),
+            history = cmd :: s.history))
       }
       s.remainingCommands match {
         case List()           => exit(true)
@@ -247,8 +246,7 @@ object State {
     def reboot(full: Boolean) = {
       runExitHooks();
       throw new xsbti.FullReload(
-        (s.remainingCommands map { case e: Exec => e.commandLine }).toArray,
-        full)
+          (s.remainingCommands map { case e: Exec => e.commandLine }).toArray, full)
     }
     def reload = runExitHooks().setNext(new Return(defaultReload(s)))
     def clearGlobalLog = setNext(ClearGlobalLog)
@@ -264,8 +262,8 @@ object State {
     def fail = {
       import BasicCommandStrings.Compat.{ FailureWall => CompatFailureWall }
       val remaining =
-        s.remainingCommands.dropWhile(c =>
-          c.commandLine != FailureWall && c.commandLine != CompatFailureWall)
+        s.remainingCommands.dropWhile(
+            c => c.commandLine != FailureWall && c.commandLine != CompatFailureWall)
       if (remaining.isEmpty)
         applyOnFailure(s, Nil, exit(ok = false))
       else
@@ -284,7 +282,8 @@ object State {
       s.copy(exitHooks = Set.empty)
     }
     def locked[T](file: File)(t: => T): T =
-      s.configuration.provider.scalaProvider.launcher.globalLock.apply(file, new Callable[T] {
+      s.configuration.provider.scalaProvider.launcher.globalLock.apply(file,
+        new Callable[T] {
         def call = t
       })
 

@@ -51,12 +51,10 @@ object SettingMacro {
   import LinterDSL.{ Empty => EmptyLinter }
   def settingMacroImpl[T: c.WeakTypeTag](c: blackbox.Context)(t: c.Expr[T]): c.Expr[Initialize[T]] =
     Instance.contImpl[T, Id](c, InitializeInstance, InitializeConvert, MixedBuilder, EmptyLinter)(
-      Left(t),
-      Instance.idTransform[c.type])
+        Left(t), Instance.idTransform[c.type])
 
   def settingDynMacroImpl[T: c.WeakTypeTag](c: blackbox.Context)(
       t: c.Expr[Initialize[T]]): c.Expr[Initialize[T]] =
     Instance.contImpl[T, Id](c, InitializeInstance, InitializeConvert, MixedBuilder, EmptyLinter)(
-      Right(t),
-      Instance.idTransform[c.type])
+        Right(t), Instance.idTransform[c.type])
 }

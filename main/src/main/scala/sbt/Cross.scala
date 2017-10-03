@@ -143,11 +143,11 @@ object Cross {
           val distinctCrossConfigs = projCrossVersions.map(_._2.toSet).distinct
           if (validCommand && distinctCrossConfigs.size > 1) {
             state.log.warn(
-              "Issuing a cross building command, but not all sub projects have the same cross build " +
-                "configuration. This could result in subprojects cross building against Scala versions that they are " +
-                "not compatible with. Try issuing cross building command with tasks instead, since sbt will be able " +
-                "to ensure that cross building is only done using configured project and Scala version combinations " +
-                "that are configured.")
+                "Issuing a cross building command, but not all sub projects have the same cross build " +
+                  "configuration. This could result in subprojects cross building against Scala versions that they are " +
+                  "not compatible with. Try issuing cross building command with tasks instead, since sbt will be able " +
+                  "to ensure that cross building is only done using configured project and Scala version combinations " +
+                  "that are configured.")
             state.log.debug("Scala versions configuration is:")
             projCrossVersions.foreach {
               case (project, versions) => state.log.debug(s"$project: $versions")
@@ -171,12 +171,12 @@ object Cross {
             case (version, projects) if aggCommand.contains(" ") =>
               // If the command contains a space, then the `all` command won't work because it doesn't support issuing
               // commands with spaces, so revert to running the command on each project one at a time
-              s"$SwitchCommand $verbose $version" :: projects.map(project =>
-                s"$project/$aggCommand")
+              s"$SwitchCommand $verbose $version" :: projects.map(
+                  project => s"$project/$aggCommand")
             case (version, projects) =>
               // First switch scala version, then use the all command to run the command on each project concurrently
               Seq(s"$SwitchCommand $verbose $version",
-                  projects.map(_ + "/" + aggCommand).mkString("all ", " ", ""))
+                projects.map(_ + "/" + aggCommand).mkString("all ", " ", ""))
           }
       }
 

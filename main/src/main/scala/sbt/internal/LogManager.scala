@@ -191,8 +191,7 @@ object LogManager {
     val log = LogExchange.logger(loggerName, channelName, None)
     LogExchange.unbindLoggerAppenders(loggerName)
     val consoleOpt = consoleLocally(state, console)
-    LogExchange.bindLoggerAppenders(
-      loggerName,
+    LogExchange.bindLoggerAppenders(loggerName,
       (consoleOpt.toList map { _ -> Level.Debug }) ::: (relay -> Level.Debug) :: Nil)
     log
   }

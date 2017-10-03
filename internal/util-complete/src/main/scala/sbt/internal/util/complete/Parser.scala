@@ -272,7 +272,7 @@ object Parser extends ParserMain {
   ): Parser[Seq[T]] = {
     assume(min >= 0, "Minimum must be greater than or equal to zero (was " + min + ")")
     assume(max >= min,
-           "Minimum must be less than or equal to maximum (min: " + min + ", max: " + max + ")")
+      "Minimum must be less than or equal to maximum (min: " + min + ", max: " + max + ")")
 
     def checkRepeated(invalidButOptional: => Parser[Seq[T]]): Parser[Seq[T]] =
       repeated match {
@@ -834,10 +834,8 @@ private final class ParserWithExamples[T](
 ) extends ValidParser[T] {
 
   def derive(c: Char) =
-    examples(delegate derive c,
-             exampleSource.withAddedPrefix(c.toString),
-             maxNumberOfExamples,
-             removeInvalidExamples)
+    examples(delegate derive c, exampleSource.withAddedPrefix(c.toString), maxNumberOfExamples,
+      removeInvalidExamples)
 
   def result = delegate.result
 

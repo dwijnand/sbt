@@ -34,13 +34,14 @@ private[sbt] object Server {
       with TokenFileFormats
   object JsonProtocol extends JsonProtocol
 
-  def start(host: String,
-            port: Int,
-            onIncomingSocket: (Socket, ServerInstance) => Unit,
-            auth: Set[ServerAuthentication],
-            portfile: File,
-            tokenfile: File,
-            log: Logger): ServerInstance =
+  def start(
+      host: String,
+      port: Int,
+      onIncomingSocket: (Socket, ServerInstance) => Unit,
+      auth: Set[ServerAuthentication],
+      portfile: File,
+      tokenfile: File,
+      log: Logger): ServerInstance =
     new ServerInstance { self =>
       val running = new AtomicBoolean(false)
       val p: Promise[Unit] = Promise[Unit]()

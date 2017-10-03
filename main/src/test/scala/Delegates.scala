@@ -39,8 +39,8 @@ object Delegates extends Properties("delegates") {
       global forall { _ == Zero }
     }
   }
-  property("Initial scope present with all combinations of Global axes") = allAxes(
-    globalCombinations)
+  property("Initial scope present with all combinations of Global axes") =
+    allAxes(globalCombinations)
 
   property("initial scope first") = forAll { (keys: Keys) =>
     allDelegates(keys) { (scope, ds) =>
@@ -72,10 +72,8 @@ object Delegates extends Properties("delegates") {
         (axis(d) == Zero): Prop
       }: _*)
   def globalCombinations(s: Scope, ds: Seq[Scope], axis: Scope => ScopeAxis[_]): Prop = {
-    val mods = List[Scope => Scope](_.copy(project = Zero),
-                                    _.copy(config = Zero),
-                                    _.copy(task = Zero),
-                                    _.copy(extra = Zero))
+    val mods = List[Scope => Scope](_.copy(project = Zero), _.copy(config = Zero),
+      _.copy(task = Zero), _.copy(extra = Zero))
     val modAndIdent = mods.map(_ :: idFun[Scope] :: Nil)
 
     def loop(cur: Scope, acc: List[Scope], rem: List[Seq[Scope => Scope]]): Seq[Scope] =

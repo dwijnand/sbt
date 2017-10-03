@@ -9,9 +9,10 @@ import sbt.internal.util.AttributeKey
 import sbt.util.Show
 import std.Transform.DummyTaskMap
 
-final case class Extracted(structure: BuildStructure,
-                           session: SessionSettings,
-                           currentRef: ProjectRef)(implicit val showKey: Show[ScopedKey[_]]) {
+final case class Extracted(
+    structure: BuildStructure,
+    session: SessionSettings,
+    currentRef: ProjectRef)(implicit val showKey: Show[ScopedKey[_]]) {
   def rootProject = structure.rootProject
   lazy val currentUnit = structure units currentRef.build
   lazy val currentProject = currentUnit defined currentRef.project
@@ -67,8 +68,8 @@ final case class Extracted(structure: BuildStructure,
     import EvaluateTask._
 
     val scopedKey = Scoped.scopedSetting(
-      Scope.resolveScope(Load.projectScope(currentRef), currentRef.build, structure.rootProject)(
-        key.scope),
+      Scope.resolveScope(Load.projectScope(currentRef), currentRef.build,
+        structure.rootProject)(key.scope),
       key.key
     )
     val rkey = resolve(scopedKey.scopedKey)
@@ -96,11 +97,8 @@ final case class Extracted(structure: BuildStructure,
     val rkey = resolve(key.scopedKey)
     val keys = Aggregation.aggregate(rkey, ScopeMask(), structure.extra)
     val tasks = Act.keyValues(structure)(keys)
-    Aggregation.runTasks(state,
-                         structure,
-                         tasks,
-                         DummyTaskMap(Nil),
-                         show = Aggregation.defaultShow(state, false))(showKey)
+    Aggregation.runTasks(state, structure, tasks, DummyTaskMap(Nil),
+      show = Aggregation.defaultShow(state, false))(showKey)
   }
 
   private[this] def resolve[T](key: ScopedKey[T]): ScopedKey[T] =
@@ -110,8 +108,8 @@ final case class Extracted(structure: BuildStructure,
     value getOrElse sys.error(display.show(ScopedKey(scope, key)) + " is undefined.")
   private def getOrError[T](scope: Scope, key: AttributeKey[T])(
       implicit display: Show[ScopedKey[_]]): T =
-    structure.data.get(scope, key) getOrElse sys.error(
-      display.show(ScopedKey(scope, key)) + " is undefined.")
+    structure.data.get(scope, key) getOrElse sys
+      .error(display.show(ScopedKey(scope, key)) + " is undefined.")
 
   def append(settings: Seq[Setting[_]], state: State): State = {
     val appendSettings =

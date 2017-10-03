@@ -17,10 +17,10 @@ class ParserWithExamplesTest extends UnitSpec {
     "use the delegate parser to remove invalid examples" in {
     val _ = new ParserWithValidExamples {
       val validCompletions = Completions(
-        Set(
-          suggestion("blue"),
-          suggestion("red")
-        ))
+          Set(
+            suggestion("blue"),
+            suggestion("red")
+          ))
       parserWithExamples.completions(0) shouldEqual validCompletions
     }
   }
@@ -29,9 +29,9 @@ class ParserWithExamplesTest extends UnitSpec {
     "produce only valid examples that start with the character of the derivation" in {
     val _ = new ParserWithValidExamples {
       val derivedCompletions = Completions(
-        Set(
-          suggestion("lue")
-        ))
+          Set(
+            suggestion("lue")
+          ))
       parserWithExamples.derive('b').completions(0) shouldEqual derivedCompletions
     }
   }
@@ -48,10 +48,10 @@ class ParserWithExamplesTest extends UnitSpec {
     "produce only examples that start with the character of the derivation" in {
     val _ = new parserWithAllExamples {
       val derivedCompletions = Completions(
-        Set(
-          suggestion("lue"),
-          suggestion("lock")
-        ))
+          Set(
+            suggestion("lue"),
+            suggestion("lock")
+          ))
       parserWithExamples.derive('b').completions(0) shouldEqual derivedCompletions
     }
   }

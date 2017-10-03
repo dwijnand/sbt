@@ -25,14 +25,12 @@ trait ScriptedKeys {
   lazy val publishAll = TaskKey[Unit]("publish-all")
   lazy val publishLocalBinAll = taskKey[Unit]("")
   lazy val scripted = InputKey[Unit]("scripted")
-  lazy val scriptedUnpublished = InputKey[Unit](
-    "scripted-unpublished",
+  lazy val scriptedUnpublished = InputKey[Unit]("scripted-unpublished",
     "Execute scripted without publishing SBT first. Saves you some time when only your test has changed.")
   lazy val scriptedSource = SettingKey[File]("scripted-source")
   lazy val scriptedPrescripted = TaskKey[File => Unit]("scripted-prescripted")
   lazy val scriptedBufferLog = SettingKey[Boolean]("scripted-buffer-log")
-  lazy val scriptedLaunchOpts = SettingKey[Seq[String]](
-    "scripted-launch-opts",
+  lazy val scriptedLaunchOpts = SettingKey[Seq[String]]("scripted-launch-opts",
     "options to pass to jvm launching scripted tasks")
 }
 
@@ -91,22 +89,24 @@ object Scripted {
 
   // Interface to cross class loader
   type SbtScriptedRunner = {
-    def runInParallel(resourceBaseDirectory: File,
-                      bufferLog: Boolean,
-                      tests: Array[String],
-                      bootProperties: File,
-                      launchOpts: Array[String],
-                      prescripted: java.util.List[File]): Unit
+    def runInParallel(
+        resourceBaseDirectory: File,
+        bufferLog: Boolean,
+        tests: Array[String],
+        bootProperties: File,
+        launchOpts: Array[String],
+        prescripted: java.util.List[File]): Unit
   }
 
-  def doScripted(launcher: File,
-                 scriptedSbtClasspath: Seq[Attributed[File]],
-                 scriptedSbtInstance: ScalaInstance,
-                 sourcePath: File,
-                 bufferLog: Boolean,
-                 args: Seq[String],
-                 prescripted: File => Unit,
-                 launchOpts: Seq[String]): Unit = {
+  def doScripted(
+      launcher: File,
+      scriptedSbtClasspath: Seq[Attributed[File]],
+      scriptedSbtInstance: ScalaInstance,
+      sourcePath: File,
+      bufferLog: Boolean,
+      args: Seq[String],
+      prescripted: File => Unit,
+      launchOpts: Seq[String]): Unit = {
     System.err.println(s"About to run tests: ${args.mkString("\n * ", "\n * ", "\n")}")
     val noJLine = new classpath.FilteredLoader(scriptedSbtInstance.loader, "jline." :: Nil)
     val loader = classpath.ClasspathUtilities.toLoader(scriptedSbtClasspath.files, noJLine)
@@ -122,12 +122,8 @@ object Scripted {
         def get(x: Int): sbt.File = ???
         def size(): Int = 0
       }
-      bridge.runInParallel(sourcePath,
-                           bufferLog,
-                           args.toArray,
-                           launcher,
-                           launchOpts.toArray,
-                           callback)
+      bridge.runInParallel(sourcePath, bufferLog, args.toArray, launcher, launchOpts.toArray,
+        callback)
     } catch { case ite: java.lang.reflect.InvocationTargetException => throw ite.getCause }
   }
 }

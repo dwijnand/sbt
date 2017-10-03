@@ -41,10 +41,11 @@ final class BuildUtil[Proj](
     refOpt => configurations(projectForAxis(refOpt)).map(_.name)
 }
 object BuildUtil {
-  def apply(root: URI,
-            units: Map[URI, LoadedBuildUnit],
-            keyIndex: KeyIndex,
-            data: Settings[Scope]): BuildUtil[ResolvedProject] = {
+  def apply(
+      root: URI,
+      units: Map[URI, LoadedBuildUnit],
+      keyIndex: KeyIndex,
+      data: Settings[Scope]): BuildUtil[ResolvedProject] = {
     val getp = (build: URI, project: String) => Load.getProject(units, build, project)
     val configs = (_: ResolvedProject).configurations.map(c => ConfigKey(c.name))
     val aggregates = aggregationRelation(units)
@@ -99,7 +100,8 @@ object BuildUtil {
   def aggregationRelation(units: Map[URI, LoadedBuildUnit]): Relation[ProjectRef, ProjectRef] = {
     val depPairs =
       for {
-        (uri, unit) <- units.toIterable // don't lose this toIterable, doing so breaks actions/cross-multiproject & actions/update-state-fail
+        (uri,
+          unit) <- units.toIterable // don't lose this toIterable, doing so breaks actions/cross-multiproject & actions/update-state-fail
         project <- unit.defined.values
         ref = ProjectRef(uri, project.id)
         agg <- project.aggregate

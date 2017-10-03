@@ -10,11 +10,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 import sbt.protocol._
 import sjsonnew._
 
-final class NetworkChannel(val name: String,
-                           connection: Socket,
-                           structure: BuildStructure,
-                           auth: Set[ServerAuthentication],
-                           instance: ServerInstance)
+final class NetworkChannel(
+    val name: String,
+    connection: Socket,
+    structure: BuildStructure,
+    auth: Set[ServerAuthentication],
+    instance: ServerInstance)
     extends CommandChannel {
   private val running = new AtomicBoolean(true)
   private val delimiter: Byte = '\n'.toByte
@@ -99,8 +100,8 @@ final class NetworkChannel(val name: String,
 
   private def onExecCommand(cmd: ExecCommand) = {
     if (initialized) {
-      append(
-        Exec(cmd.commandLine, cmd.execId orElse Some(Exec.newExecId), Some(CommandSource(name))))
+      append(Exec(cmd.commandLine, cmd.execId orElse Some(Exec.newExecId),
+          Some(CommandSource(name))))
     } else {
       println(s"ignoring command $cmd before initialization")
     }

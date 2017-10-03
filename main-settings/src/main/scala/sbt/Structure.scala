@@ -311,7 +311,7 @@ object Scoped {
       set(scopedKey(_ map f), source)
 
     @deprecated("No longer needed with new task syntax and SettingKey inheriting from Initialize.",
-                "0.13.2")
+      "0.13.2")
     def task: SettingKey[Task[S]] = scopedSetting(scope, key)
 
     def get(settings: Settings[Scope]): Option[Task[S]] = settings.get(scope, key)
@@ -362,7 +362,7 @@ object Scoped {
     def dependsOn(tasks: AnyInitTask*): Initialize[InputTask[S]] = {
       import TupleSyntax._
       (i, Initialize.joinAny[Task](tasks))((thisTask, deps) =>
-        thisTask.mapTask(_.dependsOn(deps: _*)))
+          thisTask.mapTask(_.dependsOn(deps: _*)))
     }
   }
 
@@ -381,23 +381,23 @@ object Scoped {
     def tagw(tags: (Tag, Int)*): Initialize[R[S]] = onTask(_.tagw(tags: _*))
 
     @deprecated(
-      "Use the `result` method to create a task that returns the full Result of this task.  Then, call `flatMap` on the new task.",
-      "0.13.0")
+        "Use the `result` method to create a task that returns the full Result of this task.  Then, call `flatMap` on the new task.",
+        "0.13.0")
     def flatMapR[T](f: Result[S] => Task[T]): Initialize[R[T]] = onTask(_ flatMapR f)
 
     @deprecated(
-      "Use the `result` method to create a task that returns the full Result of this task.  Then, call `map` on the new task.",
-      "0.13.0")
+        "Use the `result` method to create a task that returns the full Result of this task.  Then, call `map` on the new task.",
+        "0.13.0")
     def mapR[T](f: Result[S] => T): Initialize[R[T]] = onTask(_ mapR f)
 
     @deprecated(
-      "Use the `failure` method to create a task that returns Incomplete when this task fails and then call `flatMap` on the new task.",
-      "0.13.0")
+        "Use the `failure` method to create a task that returns Incomplete when this task fails and then call `flatMap` on the new task.",
+        "0.13.0")
     def flatFailure[T](f: Incomplete => Task[T]): Initialize[R[T]] = flatMapR(f compose failM)
 
     @deprecated(
-      "Use the `failure` method to create a task that returns Incomplete when this task fails and then call `map` on the new task.",
-      "0.13.0")
+        "Use the `failure` method to create a task that returns Incomplete when this task fails and then call `map` on the new task.",
+        "0.13.0")
     def mapFailure[T](f: Incomplete => T): Initialize[R[T]] = mapR(f compose failM)
   }
 

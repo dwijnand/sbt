@@ -69,7 +69,7 @@ object ParseKey extends Properties("Key parser test") {
   }
 
   property(
-    "An unspecified configuration axis resolves to the first configuration directly defining the key or else Zero") =
+      "An unspecified configuration axis resolves to the first configuration directly defining the key or else Zero") =
     forAllNoShrink(structureDefinedKey) { (skm: StructureKeyMask) =>
       import skm.{ structure, key }
       val mask = ScopeMask(config = false)
@@ -101,12 +101,13 @@ object ParseKey extends Properties("Key parser test") {
 
   def resolve(structure: Structure, key: ScopedKey[_], mask: ScopeMask): ScopedKey[_] =
     ScopedKey(Resolve(structure.extra, Select(structure.current), key.key, mask)(key.scope),
-              key.key)
+      key.key)
 
-  def parseExpected(structure: Structure,
-                    s: String,
-                    expected: ScopedKey[_],
-                    mask: ScopeMask): Prop =
+  def parseExpected(
+      structure: Structure,
+      s: String,
+      expected: ScopedKey[_],
+      mask: ScopeMask): Prop =
     ("Expected: " + displayFull(expected)) |:
       ("Mask: " + mask) |:
       parse(structure, s) {

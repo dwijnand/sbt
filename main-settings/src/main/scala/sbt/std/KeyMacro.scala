@@ -35,8 +35,7 @@ private[sbt] object KeyMacro {
 
   private def getName[S: c.WeakTypeTag, T: c.WeakTypeTag](c: blackbox.Context): c.Expr[String] = {
     import c.universe._
-    val enclosingValName = definingValName(
-      c,
+    val enclosingValName = definingValName(c,
       methodName =>
         s"""$methodName must be directly assigned to a val, such as `val x = $methodName[Int]("description")`.""")
     c.Expr[String](Literal(Constant(enclosingValName)))

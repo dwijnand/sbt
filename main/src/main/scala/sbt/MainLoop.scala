@@ -56,7 +56,7 @@ object MainLoop {
         throw e // pass along a reboot request
       case NonFatal(e) =>
         System.err.println(
-          "sbt appears to be exiting abnormally.\n  The log file for this session is at " + logBacking.file)
+            "sbt appears to be exiting abnormally.\n  The log file for this session is at " + logBacking.file)
         deleteLastLog(logBacking)
         throw e
     }
@@ -112,10 +112,8 @@ object MainLoop {
   def processCommand(exec: Exec, state: State): State = {
     import DefaultParsers._
     val channelName = exec.source map (_.channelName)
-    StandardMain.exchange publishEventMessage ExecStatusEvent("Processing",
-                                                              channelName,
-                                                              exec.execId,
-                                                              Vector())
+    StandardMain.exchange publishEventMessage ExecStatusEvent("Processing", channelName,
+      exec.execId, Vector())
     val parser = Command combine state.definedCommands
     val newState = parse(exec.commandLine, parser(state)) match {
       case Right(s) => s() // apply command.  command side effects happen here
@@ -123,10 +121,7 @@ object MainLoop {
         state.log error errMsg
         state.fail
     }
-    StandardMain.exchange publishEventMessage ExecStatusEvent(
-      "Done",
-      channelName,
-      exec.execId,
+    StandardMain.exchange publishEventMessage ExecStatusEvent("Done", channelName, exec.execId,
       newState.remainingCommands.toVector map (_.commandLine))
     newState
   }

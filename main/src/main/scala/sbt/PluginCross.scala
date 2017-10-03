@@ -26,7 +26,7 @@ private[sbt] object PluginCross {
     def switchParser(state: State): Parser[(String, String)] = {
       val knownVersions = Nil
       lazy val switchArgs = token(NotSpace.examples(knownVersions: _*)) ~ (token(
-        Space ~> matched(state.combinedParser)) ?? "")
+          Space ~> matched(state.combinedParser)) ?? "")
       lazy val nextSpaced = spacedFirst(PluginSwitchCommand)
       token(PluginSwitchCommand ~ OptSpace) flatMap { _ =>
         switchArgs & nextSpaced
@@ -59,8 +59,9 @@ private[sbt] object PluginCross {
     def crossParser(state: State): Parser[String] =
       token(PluginCrossCommand <~ OptSpace) flatMap { _ =>
         token(
-          matched(state.combinedParser &
-            spacedFirst(PluginCrossCommand)))
+            matched(
+                state.combinedParser &
+                  spacedFirst(PluginCrossCommand)))
       }
     def crossVersions(state: State): List[String] = {
       val x = Project.extract(state)

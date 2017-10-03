@@ -43,8 +43,7 @@ object BackgroundJobService {
     (state, handles) =>
       {
         val stringIdParser: Parser[Seq[String]] = Space ~> token(
-          NotSpace examples handles.map(_.id.toString).toSet,
-          description = "<job id>").+
+            NotSpace examples handles.map(_.id.toString).toSet, description = "<job id>").+
         stringIdParser.map { strings =>
           strings.map(Integer.parseInt(_)).flatMap(id => handles.find(_.id == id))
         }

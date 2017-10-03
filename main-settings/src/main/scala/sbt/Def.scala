@@ -17,14 +17,10 @@ object Def extends Init[Scope] with TaskMacroExtra {
 
   val triggeredBy = AttributeKey[Seq[Task[_]]]("triggered-by")
   val runBefore = AttributeKey[Seq[Task[_]]]("run-before")
-  val resolvedScoped = SettingKey[ScopedKey[_]](
-    "resolved-scoped",
-    "The ScopedKey for the referencing setting or task.",
-    KeyRanks.DSetting)
-  private[sbt] val taskDefinitionKey = AttributeKey[ScopedKey[_]](
-    "task-definition-key",
-    "Internal: used to map a task back to its ScopedKey.",
-    Invisible)
+  val resolvedScoped = SettingKey[ScopedKey[_]]("resolved-scoped",
+    "The ScopedKey for the referencing setting or task.", KeyRanks.DSetting)
+  private[sbt] val taskDefinitionKey = AttributeKey[ScopedKey[_]]("task-definition-key",
+    "Internal: used to map a task back to its ScopedKey.", Invisible)
 
   lazy val showFullKey: Show[ScopedKey[_]] = showFullKey(None)
 
@@ -37,12 +33,12 @@ object Def extends Init[Scope] with TaskMacroExtra {
       keyNameColor: Option[String] = None
   ): Show[ScopedKey[_]] =
     Show[ScopedKey[_]](
-      key =>
-        Scope.display(
-          key.scope,
-          withColor(key.key.label, keyNameColor),
-          ref => displayRelative(current, multi, ref)
-      ))
+        key =>
+          Scope.display(
+            key.scope,
+            withColor(key.key.label, keyNameColor),
+            ref => displayRelative(current, multi, ref)
+        ))
 
   def showBuildRelativeKey(
       currentBuild: URI,
@@ -50,12 +46,12 @@ object Def extends Init[Scope] with TaskMacroExtra {
       keyNameColor: Option[String] = None
   ): Show[ScopedKey[_]] =
     Show[ScopedKey[_]](
-      key =>
-        Scope.display(
-          key.scope,
-          withColor(key.key.label, keyNameColor),
-          ref => displayBuildRelative(currentBuild, multi, ref)
-      ))
+        key =>
+          Scope.display(
+            key.scope,
+            withColor(key.key.label, keyNameColor),
+            ref => displayBuildRelative(currentBuild, multi, ref)
+        ))
 
   /**
    * Returns a String expression for the given [[Reference]] (BuildRef, [[ProjectRef]], etc)
@@ -72,9 +68,10 @@ object Def extends Init[Scope] with TaskMacroExtra {
    * Constructs the String of a given [[Reference]] relative to current.
    * Note that this no longer takes "multi" parameter, and omits the subproject id at all times.
    */
-  private[sbt] def displayRelative(current: ProjectRef,
-                                   project: Reference,
-                                   trailingSlash: Boolean): String = {
+  private[sbt] def displayRelative(
+      current: ProjectRef,
+      project: Reference,
+      trailingSlash: Boolean): String = {
     val trailing = if (trailingSlash) " /" else ""
     project match {
       case BuildRef(current.build)      => "ThisBuild" + trailing
@@ -118,7 +115,7 @@ object Def extends Init[Scope] with TaskMacroExtra {
       s.dependencies
         .find(k => k.scope != ThisScope)
         .map(k =>
-          s"Scope cannot be defined for dependency ${k.key.label} of ${definedSettingString(s)}")
+            s"Scope cannot be defined for dependency ${k.key.label} of ${definedSettingString(s)}")
 
   override def intersect(s1: Scope, s2: Scope)(
       implicit delegates: Scope => Seq[Scope]): Option[Scope] =
@@ -186,19 +183,17 @@ object Def extends Init[Scope] with TaskMacroExtra {
   private[sbt] def dummyTask[T](name: String): Task[T] = {
     import std.TaskExtra.{ task => newTask, _ }
     val base: Task[T] = newTask(
-      sys.error("Dummy task '" + name + "' did not get converted to a full task.")) named name
+        sys.error("Dummy task '" + name + "' did not get converted to a full task.")) named name
     base.copy(info = base.info.set(isDummyTask, true))
   }
   private[sbt] def isDummy(t: Task[_]): Boolean =
     t.info.attributes.get(isDummyTask) getOrElse false
-  private[sbt] val isDummyTask = AttributeKey[Boolean](
-    "is-dummy-task",
+  private[sbt] val isDummyTask = AttributeKey[Boolean]("is-dummy-task",
     "Internal: used to identify dummy tasks.  sbt injects values for these tasks at the start of task execution.",
     Invisible)
   private[sbt] val (stateKey, dummyState) = dummy[State]("state", "Current build state.")
   private[sbt] val (streamsManagerKey, dummyStreamsManager) = Def.dummy[std.Streams[ScopedKey[_]]](
-    "streams-manager",
-    "Streams manager, which provides streams for different contexts.")
+      "streams-manager", "Streams manager, which provides streams for different contexts.")
 }
 // these need to be mixed into the sbt package object because the target doesn't involve Initialize or anything in Def
 trait TaskMacroExtra {

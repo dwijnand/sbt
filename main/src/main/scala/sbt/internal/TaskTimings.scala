@@ -45,10 +45,11 @@ private[sbt] final class TaskTimings(shutdown: Boolean) extends ExecuteProgress[
     if (!shutdown)
       start = System.nanoTime
   }
-  def registered(state: Unit,
-                 task: Task[_],
-                 allDeps: Iterable[Task[_]],
-                 pendingDeps: Iterable[Task[_]]) = {
+  def registered(
+      state: Unit,
+      task: Task[_],
+      allDeps: Iterable[Task[_]],
+      pendingDeps: Iterable[Task[_]]) = {
     pendingDeps foreach { t =>
       if (transformNode(t).isEmpty) anonOwners.put(t, task)
     }

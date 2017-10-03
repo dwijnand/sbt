@@ -16,10 +16,11 @@ import scala.sys.process.{ BasicIO, Process }
 
 final case class SbtInstance(process: Process, server: IPC.Server)
 
-final class SbtHandler(directory: File,
-                       launcher: File,
-                       log: Logger,
-                       launchOpts: Seq[String] = Seq())
+final class SbtHandler(
+    directory: File,
+    launcher: File,
+    log: Logger,
+    launchOpts: Seq[String] = Seq())
     extends StatementHandler {
   type State = Option[SbtInstance]
   def initialState = None

@@ -484,7 +484,7 @@ object Project extends ProjectExtra {
     val newState = unloaded.copy(attributes = newAttrs)
     // TODO: Fix this
     onLoad(
-      updateCurrent(newState) /*LogManager.setGlobalLogLevels(updateCurrent(newState), structure.data)*/ )
+        updateCurrent(newState) /*LogManager.setGlobalLogLevels(updateCurrent(newState), structure.data)*/ )
   }
 
   def orIdentity[T](opt: Option[T => T]): T => T = opt getOrElse idFun
@@ -516,7 +516,7 @@ object Project extends ProjectExtra {
     val authentication: Option[Set[ServerAuthentication]] = get(serverAuthentication)
     val commandDefs = allCommands.distinct.flatten[Command].map(_ tag (projectCommand, true))
     val newDefinedCommands = commandDefs ++ BasicCommands.removeTagged(s.definedCommands,
-                                                                       projectCommand)
+      projectCommand)
     val newAttrs =
       s.attributes
         .setCond(Watched.Configuration, watched)
@@ -585,9 +585,10 @@ object Project extends ProjectExtra {
   def delegates(structure: BuildStructure, scope: Scope, key: AttributeKey[_]): Seq[ScopedKey[_]] =
     structure.delegates(scope).map(d => ScopedKey(d, key))
 
-  def scopedKeyData(structure: BuildStructure,
-                    scope: Scope,
-                    key: AttributeKey[_]): Option[ScopedKeyData[_]] =
+  def scopedKeyData(
+      structure: BuildStructure,
+      scope: Scope,
+      key: AttributeKey[_]): Option[ScopedKeyData[_]] =
     structure.data.get(scope, key) map { v =>
       ScopedKeyData(ScopedKey(scope, key), v)
     }
@@ -634,20 +635,22 @@ object Project extends ProjectExtra {
     val reverse = reverseDependencies(cMap, scoped)
     val derivedReverse = reverse.filter(r => derivedDependencies(r).contains(definingScoped)).toSet
 
-    def printDepScopes(baseLabel: String,
-                       derivedLabel: String,
-                       scopes: Iterable[ScopedKey[_]],
-                       derived: Set[ScopedKey[_]]): String = {
+    def printDepScopes(
+        baseLabel: String,
+        derivedLabel: String,
+        scopes: Iterable[ScopedKey[_]],
+        derived: Set[ScopedKey[_]]): String = {
       val label = s"$baseLabel${if (derived.isEmpty) "" else s" (D=$derivedLabel)"}"
       val prefix: ScopedKey[_] => String =
         if (derived.isEmpty) const("") else sk => if (derived(sk)) "D " else "  "
       printScopes(label, scopes, prefix = prefix)
     }
 
-    def printScopes(label: String,
-                    scopes: Iterable[ScopedKey[_]],
-                    max: Int = Int.MaxValue,
-                    prefix: ScopedKey[_] => String = const("")) =
+    def printScopes(
+        label: String,
+        scopes: Iterable[ScopedKey[_]],
+        max: Int = Int.MaxValue,
+        prefix: ScopedKey[_] => String = const("")) =
       if (scopes.isEmpty) ""
       else {
         val (limited, more) =
@@ -714,15 +717,15 @@ object Project extends ProjectExtra {
     relation(structure, actual)(display).all.toSeq flatMap {
       case (a, b) => if (b.key == key) List[ScopedKey[_]](a) else Nil
     }
-  def reverseDependencies(cMap: Map[ScopedKey[_], Flattened],
-                          scoped: ScopedKey[_]): Iterable[ScopedKey[_]] =
+  def reverseDependencies(
+      cMap: Map[ScopedKey[_], Flattened],
+      scoped: ScopedKey[_]): Iterable[ScopedKey[_]] =
     for ((key, compiled) <- cMap; dep <- compiled.dependencies if dep == scoped) yield key
 
   def setAll(extracted: Extracted, settings: Seq[Def.Setting[_]]): SessionSettings =
     SettingCompletions.setAll(extracted, settings).session
 
-  val ExtraBuilds = AttributeKey[List[URI]](
-    "extra-builds",
+  val ExtraBuilds = AttributeKey[List[URI]]("extra-builds",
     "Extra build URIs to load in addition to the ones defined by the project.")
   def extraBuilds(s: State): List[URI] = getOrNil(s, ExtraBuilds)
   def getOrNil[T](s: State, key: AttributeKey[List[T]]): List[T] = s get key getOrElse Nil
@@ -805,17 +808,16 @@ object Project extends ProjectExtra {
 
     def storeAs(key: TaskKey[S])(implicit f: JsonFormat[S]): Def.Initialize[Task[S]] = {
       import TupleSyntax._
-      (Keys.resolvedScoped, i)(
-        (scoped, task) =>
+      (Keys.resolvedScoped, i)((scoped, task) =>
           tx(task,
-             (state, value) =>
-               persistAndSet(resolveContext(key, scoped.scope, state), state, value)(f)))
+            (state, value) =>
+              persistAndSet(resolveContext(key, scoped.scope, state), state, value)(f)))
     }
 
     def keepAs(key: TaskKey[S]): Def.Initialize[Task[S]] = {
       import TupleSyntax._
       (i, Keys.resolvedScoped)((t, scoped) =>
-        tx(t, (state, value) => set(resolveContext(key, scoped.scope, state), state, value)))
+          tx(t, (state, value) => set(resolveContext(key, scoped.scope, state), state, value)))
     }
   }
 
@@ -823,8 +825,7 @@ object Project extends ProjectExtra {
 
   def projectMacroImpl(c: blackbox.Context): c.Expr[Project] = {
     import c.universe._
-    val enclosingValName = std.KeyMacro.definingValName(
-      c,
+    val enclosingValName = std.KeyMacro.definingValName(c,
       methodName =>
         s"""$methodName must be directly assigned to a val, such as `val x = $methodName`. Alternatively, you can use `sbt.Project.apply`""")
     val name = c.Expr[String](Literal(Constant(enclosingValName)))

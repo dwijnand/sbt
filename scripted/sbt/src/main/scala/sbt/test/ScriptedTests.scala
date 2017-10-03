@@ -21,10 +21,11 @@ import scala.collection.mutable
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.collection.parallel.mutable.ParSeq
 
-final class ScriptedTests(resourceBaseDirectory: File,
-                          bufferLog: Boolean,
-                          launcher: File,
-                          launchOpts: Seq[String]) {
+final class ScriptedTests(
+    resourceBaseDirectory: File,
+    bufferLog: Boolean,
+    launcher: File,
+    launchOpts: Seq[String]) {
   import sbt.io.syntax._
   import ScriptedTests._
   private val testResources = new Resources(resourceBaseDirectory)
@@ -38,10 +39,11 @@ final class ScriptedTests(resourceBaseDirectory: File,
     singleScriptedTest(group, name, emptyCallback, log)
 
   /** Returns a sequence of test runners that have to be applied in the call site. */
-  def singleScriptedTest(group: String,
-                         name: String,
-                         prescripted: File => Unit,
-                         log: Logger): Seq[TestRunner] = {
+  def singleScriptedTest(
+      group: String,
+      name: String,
+      prescripted: File => Unit,
+      log: Logger): Seq[TestRunner] = {
 
     // Test group and names may be file filters (like '*')
     for (groupDir <- (resourceBaseDirectory * group).get; nme <- (groupDir * name).get) yield {
@@ -306,12 +308,13 @@ object ScriptedTests extends ScriptedRunner {
 class ScriptedRunner {
   // This is called by project/Scripted.scala
   // Using java.util.List[File] to encode File => Unit
-  def run(resourceBaseDirectory: File,
-          bufferLog: Boolean,
-          tests: Array[String],
-          bootProperties: File,
-          launchOpts: Array[String],
-          prescripted: java.util.List[File]): Unit = {
+  def run(
+      resourceBaseDirectory: File,
+      bufferLog: Boolean,
+      tests: Array[String],
+      bootProperties: File,
+      launchOpts: Array[String],
+      prescripted: java.util.List[File]): Unit = {
 
     // Force Log4J to not use a thread context classloader otherwise it throws a CCE
     sys.props(org.apache.logging.log4j.util.LoaderUtil.IGNORE_TCCL_PROPERTY) = "true"
@@ -323,26 +326,23 @@ class ScriptedRunner {
   }
   // This is called by sbt-scripted 0.13.x (the sbt host) when cross-compiling to sbt 0.13.x and 1.0.x
   // See https://github.com/sbt/sbt/issues/3245
-  def run(resourceBaseDirectory: File,
-          bufferLog: Boolean,
-          tests: Array[String],
-          bootProperties: File,
-          launchOpts: Array[String]): Unit =
-    run(resourceBaseDirectory,
-        bufferLog,
-        tests,
-        ConsoleLogger(),
-        bootProperties,
-        launchOpts,
-        ScriptedTests.emptyCallback)
+  def run(
+      resourceBaseDirectory: File,
+      bufferLog: Boolean,
+      tests: Array[String],
+      bootProperties: File,
+      launchOpts: Array[String]): Unit =
+    run(resourceBaseDirectory, bufferLog, tests, ConsoleLogger(), bootProperties, launchOpts,
+      ScriptedTests.emptyCallback)
 
-  def run(resourceBaseDirectory: File,
-          bufferLog: Boolean,
-          tests: Array[String],
-          logger: AbstractLogger,
-          bootProperties: File,
-          launchOpts: Array[String],
-          prescripted: File => Unit): Unit = {
+  def run(
+      resourceBaseDirectory: File,
+      bufferLog: Boolean,
+      tests: Array[String],
+      logger: AbstractLogger,
+      bootProperties: File,
+      launchOpts: Array[String],
+      prescripted: File => Unit): Unit = {
     val runner = new ScriptedTests(resourceBaseDirectory, bufferLog, bootProperties, launchOpts)
     val sbtVersion = bootProperties.getName.dropWhile(!_.isDigit).dropRight(".jar".length)
     val accept = isTestCompatible(resourceBaseDirectory, sbtVersion) _
@@ -353,22 +353,17 @@ class ScriptedRunner {
     runAll(allTests)
   }
 
-  def runInParallel(resourceBaseDirectory: File,
-                    bufferLog: Boolean,
-                    tests: Array[String],
-                    bootProperties: File,
-                    launchOpts: Array[String],
-                    prescripted: java.util.List[File]): Unit = {
+  def runInParallel(
+      resourceBaseDirectory: File,
+      bufferLog: Boolean,
+      tests: Array[String],
+      bootProperties: File,
+      launchOpts: Array[String],
+      prescripted: java.util.List[File]): Unit = {
     val logger = ConsoleLogger()
     val addTestFile = (f: File) => { prescripted.add(f); () }
-    runInParallel(resourceBaseDirectory,
-                  bufferLog,
-                  tests,
-                  logger,
-                  bootProperties,
-                  launchOpts,
-                  addTestFile,
-                  1)
+    runInParallel(resourceBaseDirectory, bufferLog, tests, logger, bootProperties, launchOpts,
+      addTestFile, 1)
   }
 
   def runInParallel(
@@ -405,18 +400,20 @@ class ScriptedRunner {
   @deprecated("No longer used", "1.1.0")
   def get(tests: Seq[String], baseDirectory: File, log: Logger): Seq[ScriptedTest] =
     get(tests, baseDirectory, _ => true, log)
-  def get(tests: Seq[String],
-          baseDirectory: File,
-          accept: ScriptedTest => Boolean,
-          log: Logger): Seq[ScriptedTest] =
+  def get(
+      tests: Seq[String],
+      baseDirectory: File,
+      accept: ScriptedTest => Boolean,
+      log: Logger): Seq[ScriptedTest] =
     if (tests.isEmpty) listTests(baseDirectory, accept, log) else parseTests(tests)
 
   @deprecated("No longer used", "1.1.0")
   def listTests(baseDirectory: File, log: Logger): Seq[ScriptedTest] =
     listTests(baseDirectory, _ => true, log)
-  def listTests(baseDirectory: File,
-                accept: ScriptedTest => Boolean,
-                log: Logger): Seq[ScriptedTest] =
+  def listTests(
+      baseDirectory: File,
+      accept: ScriptedTest => Boolean,
+      log: Logger): Seq[ScriptedTest] =
     (new ListTests(baseDirectory, accept, log)).listTests
 
   def parseTests(in: Seq[String]): Seq[ScriptedTest] =
@@ -449,9 +446,10 @@ private[test] object ListTests {
   def list(directory: File, filter: java.io.FileFilter) = wrapNull(directory.listFiles(filter))
 }
 import ListTests._
-private[test] final class ListTests(baseDirectory: File,
-                                    accept: ScriptedTest => Boolean,
-                                    log: Logger) {
+private[test] final class ListTests(
+    baseDirectory: File,
+    accept: ScriptedTest => Boolean,
+    log: Logger) {
   def filter = DirectoryFilter -- HiddenFileFilter
   def listTests: Seq[ScriptedTest] = {
     list(baseDirectory, filter) flatMap { group =>

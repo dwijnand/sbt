@@ -99,11 +99,12 @@ object Aggregation {
     Complete(start, stop, result, newS)
   }
 
-  def runTasks[HL <: HList, T](s: State,
-                               structure: BuildStructure,
-                               ts: Values[Task[T]],
-                               extra: DummyTaskMap,
-                               show: ShowConfig)(implicit display: Show[ScopedKey[_]]): State = {
+  def runTasks[HL <: HList, T](
+      s: State,
+      structure: BuildStructure,
+      ts: Values[Task[T]],
+      extra: DummyTaskMap,
+      show: ShowConfig)(implicit display: Show[ScopedKey[_]]): State = {
     val complete = timedRun[T](s, ts, extra)
     showRun(complete, show)
     complete.results match {
@@ -232,8 +233,8 @@ object Aggregation {
       reverse: Boolean
   ): Seq[ProjectRef] = {
     val resRef = proj.map(p => extra.projectRefFor(extra.resolveRef(p)))
-    resRef.toList.flatMap(ref =>
-      if (reverse) extra.aggregates.reverse(ref) else extra.aggregates.forward(ref))
+    resRef.toList.flatMap(
+        ref => if (reverse) extra.aggregates.reverse(ref) else extra.aggregates.forward(ref))
   }
 
   def aggregate[T, Proj](

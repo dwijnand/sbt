@@ -56,18 +56,20 @@ private[sbt] object TemplateCommandUtil {
       case None    => System.err.println("Template not found for: " + arguments.mkString(" "))
     }
 
-  private def tryTemplate(info: TemplateResolverInfo,
-                          arguments: List[String],
-                          loader: ClassLoader): Boolean = {
+  private def tryTemplate(
+      info: TemplateResolverInfo,
+      arguments: List[String],
+      loader: ClassLoader): Boolean = {
     val resultObj = call(info.implementationClass, "isDefined", loader)(
       classOf[Array[String]]
     )(arguments.toArray)
     resultObj.asInstanceOf[Boolean]
   }
 
-  private def runTemplate(info: TemplateResolverInfo,
-                          arguments: List[String],
-                          loader: ClassLoader): Unit =
+  private def runTemplate(
+      info: TemplateResolverInfo,
+      arguments: List[String],
+      loader: ClassLoader): Unit =
     call(info.implementationClass, "run", loader)(classOf[Array[String]])(arguments.toArray)
 
   private def infoLoader(

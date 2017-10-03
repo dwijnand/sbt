@@ -4,8 +4,9 @@ package internal
 import Def.Setting
 import java.net.URI
 
-private[sbt] final class GroupedAutoPlugins(val all: Seq[AutoPlugin],
-                                            val byBuild: Map[URI, Seq[AutoPlugin]]) {
+private[sbt] final class GroupedAutoPlugins(
+    val all: Seq[AutoPlugin],
+    val byBuild: Map[URI, Seq[AutoPlugin]]) {
   def globalSettings: Seq[Setting[_]] = all.flatMap(_.globalSettings)
   def buildSettings(uri: URI): Seq[Setting[_]] =
     byBuild.getOrElse(uri, Nil).flatMap(_.buildSettings)

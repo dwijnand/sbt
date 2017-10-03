@@ -20,9 +20,8 @@ object TagsTest extends Properties("Tags") {
   implicit def aTag = Arbitrary(tag)
   implicit def aSize = Arbitrary(size)
 
-  property("exclusive allows all groups without the exclusive tag") = forAll {
-    (tm: TagMap, tag: Tag) =>
-      excl(tag)(tm - tag)
+  property("exclusive allows all groups without the exclusive tag") = forAll { (tm: TagMap, tag: Tag) =>
+    excl(tag)(tm - tag)
   }
 
   property("exclusive only allows a group with an excusive tag when the size is one") = forAll {

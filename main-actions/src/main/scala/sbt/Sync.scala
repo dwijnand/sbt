@@ -26,9 +26,10 @@ import sjsonnew.{ Builder, JsonFormat, Unbuilder, deserializationError }
  * It is safe to use for its intended purpose: copying resources to a class output directory.
  */
 object Sync {
-  def apply(store: CacheStore,
-            inStyle: FileInfo.Style = FileInfo.lastModified,
-            outStyle: FileInfo.Style = FileInfo.exists)
+  def apply(
+      store: CacheStore,
+      inStyle: FileInfo.Style = FileInfo.lastModified,
+      outStyle: FileInfo.Style = FileInfo.exists)
     : Traversable[(File, File)] => Relation[File, File] =
     mappings => {
       val relation = Relation.empty ++ mappings
@@ -77,8 +78,9 @@ object Sync {
       sys.error("Duplicate mappings:" + dups.mkString)
   }
 
-  implicit def relationFormat[A, B](implicit af: JsonFormat[Map[A, Set[B]]],
-                                    bf: JsonFormat[Map[B, Set[A]]]): JsonFormat[Relation[A, B]] =
+  implicit def relationFormat[A, B](
+      implicit af: JsonFormat[Map[A, Set[B]]],
+      bf: JsonFormat[Map[B, Set[A]]]): JsonFormat[Relation[A, B]] =
     new JsonFormat[Relation[A, B]] {
       def read[J](jsOpt: Option[J], unbuilder: Unbuilder[J]): Relation[A, B] =
         jsOpt match {
@@ -101,9 +103,10 @@ object Sync {
 
     }
 
-  def writeInfo[F <: FileInfo](store: CacheStore,
-                               relation: Relation[File, File],
-                               info: Map[File, F])(implicit infoFormat: JsonFormat[F]): Unit =
+  def writeInfo[F <: FileInfo](
+      store: CacheStore,
+      relation: Relation[File, File],
+      info: Map[File, F])(implicit infoFormat: JsonFormat[F]): Unit =
     store.write((relation, info))
 
   type RelationInfo[F] = (Relation[File, File], Map[File, F])

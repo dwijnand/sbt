@@ -45,12 +45,9 @@ object Previous {
     def setTask(newTask: ScopedKey[Task[T]]) = new Referenced(newTask, format)
   }
 
-  private[sbt] val references = SettingKey[References](
-    "previous-references",
-    "Collects all static references to previous values of tasks.",
-    KeyRanks.Invisible)
-  private[sbt] val cache = TaskKey[Previous](
-    "previous-cache",
+  private[sbt] val references = SettingKey[References]("previous-references",
+    "Collects all static references to previous values of tasks.", KeyRanks.Invisible)
+  private[sbt] val cache = TaskKey[Previous]("previous-cache",
     "Caches previous values of tasks read from disk for the duration of a task execution.",
     KeyRanks.Invisible)
 
@@ -67,9 +64,10 @@ object Previous {
   }
 
   /** Persists values of tasks t where there is some task referencing it via t.previous. */
-  private[sbt] def complete(referenced: References,
-                            results: RMap[Task, Result],
-                            streams: Streams): Unit = {
+  private[sbt] def complete(
+      referenced: References,
+      results: RMap[Task, Result],
+      streams: Streams): Unit = {
     val map = referenced.getReferences
     def impl[T](key: ScopedKey[_], result: T): Unit =
       for (i <- map.get(key.asInstanceOf[ScopedTaskKey[T]])) {
@@ -94,7 +92,8 @@ object Previous {
 
   /** Public as a macro implementation detail.  Do not call directly. */
   def runtime[T](skey: TaskKey[T])(implicit format: JsonFormat[T]): Initialize[Task[Option[T]]] = {
-    val inputs = (cache in Global) zip Def.validated(skey, selfRefOk = true) zip (references in Global)
+    val inputs = (cache in Global) zip Def.validated(skey,
+      selfRefOk = true) zip (references in Global)
     inputs {
       case ((prevTask, resolved), refs) =>
         refs.recordReference(resolved, format) // always evaluated on project load

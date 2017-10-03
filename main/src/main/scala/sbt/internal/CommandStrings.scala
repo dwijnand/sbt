@@ -99,7 +99,7 @@ $LastCommand <key>
   val InspectCommand = "inspect"
   val inspectBrief =
     (s"$InspectCommand [tree|uses|definitions|actual] <key>",
-     "Prints the value for 'key', the defining scope, delegates, related definitions, and dependencies.")
+      "Prints the value for 'key', the defining scope, delegates, related definitions, and dependencies.")
   val inspectDetailed = s"""
     |$InspectCommand <key>
     |

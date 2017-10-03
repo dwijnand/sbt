@@ -39,11 +39,10 @@ object Opts {
     import sbt.io.syntax._
     val sonatypeReleases = Resolver.sonatypeRepo("releases")
     val sonatypeSnapshots = Resolver.sonatypeRepo("snapshots")
-    val sonatypeStaging = MavenRepository(
-      "sonatype-staging",
+    val sonatypeStaging = MavenRepository("sonatype-staging",
       "https://oss.sonatype.org/service/local/staging/deploy/maven2")
     val mavenLocalFile = Resolver.file("Local Repository", userHome / ".m2" / "repository" asFile)(
-      Resolver.defaultPatterns)
+        Resolver.defaultPatterns)
     val sbtSnapshots = Resolver.bintrayRepo("sbt", "maven-snapshots")
     val sbtIvySnapshots = Resolver.bintrayIvyRepo("sbt", "ivy-snapshots")
   }

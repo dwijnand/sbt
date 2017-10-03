@@ -50,8 +50,7 @@ object FullInstance
     with MonadInstance {
   type SS = sbt.internal.util.Settings[Scope]
   val settingsData = TaskKey[SS]("settings-data",
-                                 "Provides access to the project data for the build.",
-                                 KeyRanks.DTask)
+    "Provides access to the project data for the build.", KeyRanks.DTask)
 
   def flatten[T](in: Initialize[Task[Initialize[Task[T]]]]): Initialize[Task[T]] = {
     import TupleSyntax._
@@ -93,14 +92,12 @@ object TaskMacro {
 
   def taskMacroImpl[T: c.WeakTypeTag](c: blackbox.Context)(
       t: c.Expr[T]): c.Expr[Initialize[Task[T]]] =
-    Instance.contImpl[T, Id](c, FullInstance, FullConvert, MixedBuilder, TaskLinterDSL)(
-      Left(t),
+    Instance.contImpl[T, Id](c, FullInstance, FullConvert, MixedBuilder, TaskLinterDSL)(Left(t),
       Instance.idTransform[c.type])
 
   def taskDynMacroImpl[T: c.WeakTypeTag](c: blackbox.Context)(
       t: c.Expr[Initialize[Task[T]]]): c.Expr[Initialize[Task[T]]] =
-    Instance.contImpl[T, Id](c, FullInstance, FullConvert, MixedBuilder, TaskDynLinterDSL)(
-      Right(t),
+    Instance.contImpl[T, Id](c, FullInstance, FullConvert, MixedBuilder, TaskDynLinterDSL)(Right(t),
       Instance.idTransform[c.type])
 
   /** Implementation of := macro for settings. */
@@ -215,8 +212,8 @@ object TaskMacro {
             && (tpe weak_<:< c.weakTypeOf[Initialize[_]]) =>
         c.macroApplication match {
           case Apply(Apply(TypeApply(Select(preT, nmeT), targs), _), _) =>
-            val tree = Apply(
-              TypeApply(Select(preT, TermName("+=").encodedName), TypeTree(typeArgs.head) :: Nil),
+            val tree = Apply(TypeApply(Select(preT, TermName("+=").encodedName),
+                TypeTree(typeArgs.head) :: Nil),
               Select(v.tree, TermName("taskValue").encodedName) :: Nil)
             c.Expr[Setting[T]](tree)
           case x => ContextUtil.unexpectedTree(x)
@@ -282,8 +279,7 @@ object TaskMacro {
     c.macroApplication match {
       case Apply(Apply(TypeApply(Select(preT, nmeT), targs), _), _) =>
         Apply(Apply(TypeApply(Select(preT, TermName(newName).encodedName), targs),
-                    init :: sourcePosition(c).tree :: Nil),
-              append :: Nil)
+            init :: sourcePosition(c).tree :: Nil), append :: Nil)
       case x => ContextUtil.unexpectedTree(x)
     }
   }
@@ -294,8 +290,7 @@ object TaskMacro {
     c.macroApplication match {
       case Apply(Apply(TypeApply(Select(preT, nmeT), targs), _), r) =>
         Apply(Apply(TypeApply(Select(preT, TermName(newName).encodedName), targs),
-                    init :: sourcePosition(c).tree :: Nil),
-              r)
+            init :: sourcePosition(c).tree :: Nil), r)
       case x => ContextUtil.unexpectedTree(x)
     }
   }
@@ -310,7 +305,7 @@ object TaskMacro {
         case x                           => ContextUtil.unexpectedTree(x)
       }
     Apply.apply(Select(target, TermName(newName).encodedName),
-                init :: sourcePosition(c).tree :: Nil)
+      init :: sourcePosition(c).tree :: Nil)
   }
 
   private[this] def sourcePosition(c: blackbox.Context): c.Expr[SourcePosition] = {
@@ -328,7 +323,7 @@ object TaskMacro {
   private[this] def settingSource(c: blackbox.Context, path: String, name: String): String = {
     @tailrec def inEmptyPackage(s: c.Symbol): Boolean = s != c.universe.NoSymbol && (
       s.owner == c.mirror.EmptyPackage || s.owner == c.mirror.EmptyPackageClass || inEmptyPackage(
-        s.owner)
+          s.owner)
     )
     c.internal.enclosingOwner match {
       case ec if !ec.isStatic       => name
@@ -360,16 +355,16 @@ object TaskMacro {
     }
 
   private[this] def iInitializeMacro[M[_], T](c: blackbox.Context)(t: c.Expr[T])(
-      f: c.Expr[T] => c.Expr[M[T]])(implicit tt: c.WeakTypeTag[T],
-                                    mt: c.WeakTypeTag[M[T]]): c.Expr[Initialize[M[T]]] = {
+      f: c.Expr[T] => c.Expr[M[T]])(
+      implicit tt: c.WeakTypeTag[T],
+      mt: c.WeakTypeTag[M[T]]): c.Expr[Initialize[M[T]]] = {
     val inner: Transform[c.type, M] = new Transform[c.type, M] {
       def apply(in: c.Tree): c.Tree = f(c.Expr[T](in)).tree
     }
     val cond = c.Expr[T](conditionInputTaskTree(c)(t.tree))
     Instance
-      .contImpl[T, M](c, InitializeInstance, InputInitConvert, MixedBuilder, EmptyLinter)(
-        Left(cond),
-        inner)
+      .contImpl[T, M](c, InitializeInstance, InputInitConvert, MixedBuilder,
+        EmptyLinter)(Left(cond), inner)
   }
 
   private[this] def conditionInputTaskTree(c: blackbox.Context)(t: c.Tree): c.Tree = {
@@ -405,21 +400,20 @@ object TaskMacro {
   }
 
   private[this] def iParserMacro[M[_], T](c: blackbox.Context)(t: c.Expr[T])(
-      f: c.Expr[T] => c.Expr[M[T]])(implicit tt: c.WeakTypeTag[T],
-                                    mt: c.WeakTypeTag[M[T]]): c.Expr[State => Parser[M[T]]] = {
+      f: c.Expr[T] => c.Expr[M[T]])(
+      implicit tt: c.WeakTypeTag[T],
+      mt: c.WeakTypeTag[M[T]]): c.Expr[State => Parser[M[T]]] = {
     val inner: Transform[c.type, M] = new Transform[c.type, M] {
       def apply(in: c.Tree): c.Tree = f(c.Expr[T](in)).tree
     }
-    Instance.contImpl[T, M](c, ParserInstance, ParserConvert, MixedBuilder, LinterDSL.Empty)(
-      Left(t),
-      inner)
+    Instance.contImpl[T, M](c, ParserInstance, ParserConvert, MixedBuilder,
+      LinterDSL.Empty)(Left(t), inner)
   }
 
   private[this] def iTaskMacro[T: c.WeakTypeTag](c: blackbox.Context)(
       t: c.Expr[T]): c.Expr[Task[T]] =
     Instance
-      .contImpl[T, Id](c, TaskInstance, TaskConvert, MixedBuilder, EmptyLinter)(
-        Left(t),
+      .contImpl[T, Id](c, TaskInstance, TaskConvert, MixedBuilder, EmptyLinter)(Left(t),
         Instance.idTransform)
 
   private[this] def inputTaskDynMacro0[T: c.WeakTypeTag](c: blackbox.Context)(
@@ -446,8 +440,7 @@ object TaskMacro {
     // original is the Tree being replaced.  It is needed for preserving attributes.
     def subWrapper(tpe: Type, qual: Tree, original: Tree): Tree =
       if (result.isDefined) {
-        c.error(
-          qual.pos,
+        c.error(qual.pos,
           "Implementation restriction: a dynamic InputTask can only have a single input parser.")
         EmptyTree
       } else {
@@ -505,13 +498,11 @@ object TaskMacro {
 object PlainTaskMacro {
   def task[T](t: T): Task[T] = macro taskImpl[T]
   def taskImpl[T: c.WeakTypeTag](c: blackbox.Context)(t: c.Expr[T]): c.Expr[Task[T]] =
-    Instance.contImpl[T, Id](c, TaskInstance, TaskConvert, MixedBuilder, OnlyTaskLinterDSL)(
-      Left(t),
+    Instance.contImpl[T, Id](c, TaskInstance, TaskConvert, MixedBuilder, OnlyTaskLinterDSL)(Left(t),
       Instance.idTransform[c.type])
 
   def taskDyn[T](t: Task[T]): Task[T] = macro taskDynImpl[T]
   def taskDynImpl[T: c.WeakTypeTag](c: blackbox.Context)(t: c.Expr[Task[T]]): c.Expr[Task[T]] =
-    Instance.contImpl[T, Id](c, TaskInstance, TaskConvert, MixedBuilder, OnlyTaskDynLinterDSL)(
-      Right(t),
-      Instance.idTransform[c.type])
+    Instance.contImpl[T, Id](c, TaskInstance, TaskConvert, MixedBuilder,
+      OnlyTaskDynLinterDSL)(Right(t), Instance.idTransform[c.type])
 }

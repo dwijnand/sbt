@@ -5,13 +5,14 @@ object SiteMap {
   // represents the configurable aspects of a sitemap entry
   final case class Entry(changeFreq: String, priority: Double) {
     assert(priority >= 0.0 && priority <= 1.0,
-           s"Priority must be between 0.0 and 1.0:, was $priority")
+      s"Priority must be between 0.0 and 1.0:, was $priority")
   }
-  def generate(repoBase: File,
-               remoteBase: URI,
-               gzip: Boolean,
-               entry: (File, String) => Option[Entry],
-               log: Logger): (File, Seq[File]) = {
+  def generate(
+      repoBase: File,
+      remoteBase: URI,
+      gzip: Boolean,
+      entry: (File, String) => Option[Entry],
+      log: Logger): (File, Seq[File]) = {
     def relativize(files: PathFinder): Seq[(File, String)] = files pair relativeTo(repoBase)
     def entries(files: PathFinder) =
       relativize(files) flatMap {

@@ -162,22 +162,16 @@ object Command {
     if (suggested.isEmpty) "" else suggested.mkString(" (similar: ", ", ", ")")
   }
 
-  def suggestions(a: String,
-                  bs: Seq[String],
-                  maxDistance: Int = 3,
-                  maxSuggestions: Int = 3): Seq[String] =
+  def suggestions(
+      a: String,
+      bs: Seq[String],
+      maxDistance: Int = 3,
+      maxSuggestions: Int = 3): Seq[String] =
     bs map (b => (b, distance(a, b))) filter (_._2 <= maxDistance) sortBy (_._2) take (maxSuggestions) map (_._1)
 
   def distance(a: String, b: String): Int =
-    EditDistance.levenshtein(a,
-                             b,
-                             insertCost = 1,
-                             deleteCost = 1,
-                             subCost = 2,
-                             transposeCost = 1,
-                             matchCost = -1,
-                             caseCost = 1,
-                             transpositions = true)
+    EditDistance.levenshtein(a, b, insertCost = 1, deleteCost = 1, subCost = 2, transposeCost = 1,
+      matchCost = -1, caseCost = 1, transpositions = true)
 
   def spacedAny(name: String): Parser[String] = spacedC(name, any)
 
@@ -213,9 +207,10 @@ object Help {
   def apply(briefHelp: Seq[(String, String)], detailedHelp: Map[String, String]): Help =
     apply(briefHelp, detailedHelp, Set.empty[String])
 
-  def apply(briefHelp: Seq[(String, String)],
-            detailedHelp: Map[String, String],
-            more: Set[String]): Help =
+  def apply(
+      briefHelp: Seq[(String, String)],
+      detailedHelp: Map[String, String],
+      more: Set[String]): Help =
     new Help0(briefHelp, detailedHelp, more)
 
   def more(name: String, detailedHelp: String): Help =

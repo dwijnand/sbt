@@ -300,7 +300,8 @@ trait Init[Scope] {
     val derivedString =
       if (derived) ", which is a derived setting that needs this key to be defined in this scope."
       else ""
-    display.show(u.referencedKey) + " from " + refString + sourceString + derivedString + guessedString
+    display
+      .show(u.referencedKey) + " from " + refString + sourceString + derivedString + guessedString
   }
 
   private[this] def parenPosString(s: Setting[_]): String =
@@ -355,8 +356,7 @@ trait Init[Scope] {
     val prefix = if (runtime) "Runtime reference" else "Reference"
     val keysString =
       keys.map(u => showUndefined(u, validKeys, delegates)).mkString("\n\n  ", "\n\n  ", "")
-    new Uninitialized(
-      keys,
+    new Uninitialized(keys,
       prefix + suffix + " to undefined setting" + suffix + ": " + keysString + "\n ")
   }
 
@@ -374,15 +374,15 @@ trait Init[Scope] {
     val locals = compiled flatMap {
       case (key, comp) => if (key.key.isLocal) Seq[Compiled[_]](comp) else Nil
     }
-    val ordered = Dag.topologicalSort(locals)(_.dependencies.flatMap(dep =>
-      if (dep.key.isLocal) Seq[Compiled[_]](compiled(dep)) else Nil))
+    val ordered = Dag.topologicalSort(locals)(
+        _.dependencies.flatMap(
+            dep => if (dep.key.isLocal) Seq[Compiled[_]](compiled(dep)) else Nil))
     def flatten(
         cmap: Map[ScopedKey[_], Flattened],
         key: ScopedKey[_],
         deps: Iterable[ScopedKey[_]]
     ): Flattened =
-      new Flattened(
-        key,
+      new Flattened(key,
         deps.flatMap(dep => if (dep.key.isLocal) cmap(dep).dependencies else dep :: Nil))
 
     val empty = Map.empty[ScopedKey[_], Flattened]

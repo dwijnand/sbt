@@ -195,9 +195,8 @@ object Plugins extends PluginsFunctions {
               _.head subsetOf knowledge0
             })
             log.debug(
-              s"deducing auto plugins based on known facts ${knowledge0.toString} and clauses ${clauses.toString}")
-            Logic.reduce(
-              clauses,
+                s"deducing auto plugins based on known facts ${knowledge0.toString} and clauses ${clauses.toString}")
+            Logic.reduce(clauses,
               (flattenConvert(requestedPlugins) ++ convertAll(alwaysEnabled)).toSet) match {
               case Left(problem) => throw AutoPluginException(problem)
               case Right(results) =>
@@ -213,7 +212,8 @@ object Plugins extends PluginsFunctions {
                   (selectedPlugins flatMap { Plugins.asExclusions }).toSet
                 val c = selectedPlugins.toSet & forbidden
                 if (c.nonEmpty) {
-                  exclusionConflictError(requestedPlugins, selectedPlugins, c.toSeq sortBy {
+                  exclusionConflictError(requestedPlugins, selectedPlugins,
+                    c.toSeq sortBy {
                     _.label
                   })
                 }
@@ -227,9 +227,10 @@ object Plugins extends PluginsFunctions {
   private[sbt] def topologicalSort(ns: List[AutoPlugin], log: Logger): List[AutoPlugin] = {
     // log.debug(s"sorting: ns: ${ns.toString}")
     @tailrec
-    def doSort(found0: List[AutoPlugin],
-               notFound0: List[AutoPlugin],
-               limit0: Int): List[AutoPlugin] = {
+    def doSort(
+        found0: List[AutoPlugin],
+        notFound0: List[AutoPlugin],
+        limit0: Int): List[AutoPlugin] = {
       // log.debug(s"  :: sorting:: found: ${found0.toString} not found ${notFound0.toString}")
       if (limit0 < 0) throw AutoPluginException(s"Failed to sort ${ns} topologically")
       else if (notFound0.isEmpty) found0
@@ -246,10 +247,10 @@ object Plugins extends PluginsFunctions {
   private[sbt] def translateMessage(e: LogicException) = e match {
     case ic: InitialContradictions =>
       s"Contradiction in selected plugins.  These plugins were both included and excluded: ${literalsString(
-        ic.literals.toSeq)}"
+          ic.literals.toSeq)}"
     case io: InitialOverlap =>
       s"Cannot directly enable plugins.  Plugins are enabled when their required plugins are satisfied.  The directly selected plugins were: ${literalsString(
-        io.literals.toSeq)}"
+          io.literals.toSeq)}"
     case cn: CyclicNegation =>
       s"Cycles in plugin requirements cannot involve excludes.  The problematic cycle is: ${literalsString(cn.cycle)}"
   }
@@ -264,9 +265,10 @@ object Plugins extends PluginsFunctions {
     val message = s"Plugin$ns provided by multiple AutoPlugins:$nl${dupStrings.mkString(nl)}"
     throw AutoPluginException(message)
   }
-  private[this] def exclusionConflictError(requested: Plugins,
-                                           selected: Seq[AutoPlugin],
-                                           conflicting: Seq[AutoPlugin]): Unit = {
+  private[this] def exclusionConflictError(
+      requested: Plugins,
+      selected: Seq[AutoPlugin],
+      conflicting: Seq[AutoPlugin]): Unit = {
     def listConflicts(ns: Seq[AutoPlugin]) =
       (ns map { c =>
         val reasons = (if (flatten(requested) contains c) List("requested")
@@ -417,9 +419,8 @@ ${listConflicts(conflicting)}""")
 
     val pluginClazz = ap.getClass
     existsAutoImportVal(pluginClazz)
-      .orElse(
-        catching(classOf[ClassNotFoundException]).opt(
-          Class.forName(s"${pluginClazz.getName}$autoImport$$", false, loader)))
+      .orElse(catching(classOf[ClassNotFoundException]).opt(
+            Class.forName(s"${pluginClazz.getName}$autoImport$$", false, loader)))
       .isDefined
   }
 

@@ -70,15 +70,15 @@ object ParserTest extends Properties("Completing Parser") {
     ("completions: " + cs) |: (cs == Completions.nil: Prop)
   }
 
-  property("nested tokens a") =
-    checkSingle("", Completion.token("", "a1"))(Completion.displayOnly("<a1>"))
-  property("nested tokens a1") =
-    checkSingle("a", Completion.token("a", "1"))(Completion.displayOnly("<a1>"))
+  property("nested tokens a") = checkSingle("",
+    Completion.token("", "a1"))(Completion.displayOnly("<a1>"))
+  property("nested tokens a1") = checkSingle("a",
+    Completion.token("a", "1"))(Completion.displayOnly("<a1>"))
   property("nested tokens a inv") = checkInvalid("b")
-  property("nested tokens b") =
-    checkSingle("a1", Completion.token("", "b2"))(Completion.displayOnly("<b2>"))
-  property("nested tokens b2") =
-    checkSingle("a1b", Completion.token("b", "2"))(Completion.displayOnly("<b2>"))
+  property("nested tokens b") = checkSingle("a1",
+    Completion.token("", "b2"))(Completion.displayOnly("<b2>"))
+  property("nested tokens b2") = checkSingle("a1b",
+    Completion.token("b", "2"))(Completion.displayOnly("<b2>"))
   property("nested tokens b inv") = checkInvalid("a1a")
   property("nested tokens c") = checkSingle("a1b2", Completion.suggestion("c3"))()
   property("nested tokens c3") = checkSingle("a1b2c", Completion.suggestion("3"))()
@@ -88,10 +88,10 @@ object ParserTest extends Properties("Completing Parser") {
   property("suggest port") = checkOne(" ", spacePort, Completion.displayOnly("<port>"))
   property("no suggest at end") = checkOne("asdf", "asdf", Completion.suggestion(""))
   property("no suggest at token end") = checkOne("asdf", token("asdf"), Completion.suggestion(""))
-  property("empty suggest for examples") =
-    checkOne("asdf", any.+.examples("asdf", "qwer"), Completion.suggestion(""))
-  property("empty suggest for examples token") =
-    checkOne("asdf", token(any.+.examples("asdf", "qwer")), Completion.suggestion(""))
+  property("empty suggest for examples") = checkOne("asdf", any.+.examples("asdf", "qwer"),
+    Completion.suggestion(""))
+  property("empty suggest for examples token") = checkOne("asdf",
+    token(any.+.examples("asdf", "qwer")), Completion.suggestion(""))
 
   val colors = Set("blue", "green", "red")
   val base = (seen: Seq[String]) => token(ID examples (colors -- seen))

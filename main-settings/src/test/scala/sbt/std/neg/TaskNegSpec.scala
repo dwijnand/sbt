@@ -6,9 +6,10 @@ import sbt.std.TestUtil._
 
 class TaskNegSpec extends FunSuite {
   import tools.reflect.ToolBoxError
-  def expectError(errorSnippet: String,
-                  compileOptions: String = "",
-                  baseCompileOptions: String = s"-cp $toolboxClasspath")(code: String) = {
+  def expectError(
+      errorSnippet: String,
+      compileOptions: String = "",
+      baseCompileOptions: String = s"-cp $toolboxClasspath")(code: String) = {
     val errorMessage = intercept[ToolBoxError] {
       eval(code, s"$compileOptions $baseCompileOptions")
       println(s"Test failed -- compilation was successful! Expected:\n$errorSnippet")

@@ -202,13 +202,13 @@ final class ContextUtil[C <: blackbox.Context](val ctx: C) {
   }
 
   def changeOwner(tree: Tree, prev: Symbol, next: Symbol): Unit =
-    new ChangeOwnerAndModuleClassTraverser(
-      prev.asInstanceOf[global.Symbol],
+    new ChangeOwnerAndModuleClassTraverser(prev.asInstanceOf[global.Symbol],
       next.asInstanceOf[global.Symbol]).traverse(tree.asInstanceOf[global.Tree])
 
   // Workaround copied from scala/async:can be removed once https://github.com/scala/scala/pull/3179 is merged.
-  private[this] class ChangeOwnerAndModuleClassTraverser(oldowner: global.Symbol,
-                                                         newowner: global.Symbol)
+  private[this] class ChangeOwnerAndModuleClassTraverser(
+      oldowner: global.Symbol,
+      newowner: global.Symbol)
       extends global.ChangeOwnerTraverser(oldowner, newowner) {
     override def traverse(tree: global.Tree): Unit = {
       tree match {
@@ -255,8 +255,9 @@ final class ContextUtil[C <: blackbox.Context](val ctx: C) {
    * Typically, `f` is a `Select` or `Ident`.
    * The wrapper is replaced with the result of `subWrapper(<Type of T>, <Tree of v>, <wrapper Tree>)`
    */
-  def transformWrappers(t: Tree,
-                        subWrapper: (String, Type, Tree, Tree) => Converted[ctx.type]): Tree = {
+  def transformWrappers(
+      t: Tree,
+      subWrapper: (String, Type, Tree, Tree) => Converted[ctx.type]): Tree = {
     // the main tree transformer that replaces calls to InputWrapper.wrap(x) with
     //  plain Idents that reference the actual input value
     object appTransformer extends Transformer {
@@ -265,7 +266,8 @@ final class ContextUtil[C <: blackbox.Context](val ctx: C) {
           case ApplyTree(TypeApply(Select(_, nme), targ :: Nil), qual :: Nil) =>
             subWrapper(nme.decodedName.toString, targ.tpe, qual, tree) match {
               case Converted.Success(t, finalTx) =>
-                changeOwner(qual, currentOwner, initialOwner) // Fixes https://github.com/sbt/sbt/issues/1150
+                changeOwner(qual, currentOwner,
+                  initialOwner) // Fixes https://github.com/sbt/sbt/issues/1150
                 finalTx(t)
               case Converted.Failure(p, m)       => ctx.abort(p, m)
               case _: Converted.NotApplicable[_] => super.transform(tree)

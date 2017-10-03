@@ -9,10 +9,11 @@ import sbt.internal.util.{ AttributeKey, AttributeMap, Dag }
 
 import sbt.io.IO
 
-final case class Scope(project: ScopeAxis[Reference],
-                       config: ScopeAxis[ConfigKey],
-                       task: ScopeAxis[AttributeKey[_]],
-                       extra: ScopeAxis[AttributeMap]) {
+final case class Scope(
+    project: ScopeAxis[Reference],
+    config: ScopeAxis[ConfigKey],
+    task: ScopeAxis[AttributeKey[_]],
+    extra: ScopeAxis[AttributeMap]) {
   def in(project: Reference, config: ConfigKey): Scope =
     copy(project = Select(project), config = Select(config))
   def in(config: ConfigKey, task: AttributeKey[_]): Scope =
@@ -97,17 +98,19 @@ object Scope {
     else
       IO.directoryURI(current resolve uri)
 
-  def resolveReference(current: URI,
-                       rootProject: URI => String,
-                       ref: Reference): ResolvedReference =
+  def resolveReference(
+      current: URI,
+      rootProject: URI => String,
+      ref: Reference): ResolvedReference =
     ref match {
       case br: BuildReference   => resolveBuildRef(current, br)
       case pr: ProjectReference => resolveProjectRef(current, rootProject, pr)
     }
 
-  def resolveProjectRef(current: URI,
-                        rootProject: URI => String,
-                        ref: ProjectReference): ProjectRef =
+  def resolveProjectRef(
+      current: URI,
+      rootProject: URI => String,
+      ref: ProjectReference): ProjectRef =
     ref match {
       case LocalRootProject => ProjectRef(current, rootProject(current))
       case LocalProject(id) => ProjectRef(current, id)
@@ -115,7 +118,8 @@ object Scope {
         val res = resolveBuild(current, uri); ProjectRef(res, rootProject(res))
       case ProjectRef(uri, id) => ProjectRef(resolveBuild(current, uri), id)
       case ThisProject =>
-        ProjectRef(current, rootProject(current)) // Is this right? It was an inexhaustive match before..
+        ProjectRef(current,
+          rootProject(current)) // Is this right? It was an inexhaustive match before..
     }
   def resolveBuildRef(current: URI, ref: BuildReference): BuildRef =
     ref match {
@@ -157,10 +161,11 @@ object Scope {
   def displayMasked(scope: Scope, sep: String, mask: ScopeMask, showZeroConfig: Boolean): String =
     displayMasked(scope, sep, showProject, mask, showZeroConfig)
 
-  def displayMasked(scope: Scope,
-                    sep: String,
-                    showProject: Reference => String,
-                    mask: ScopeMask): String =
+  def displayMasked(
+      scope: Scope,
+      sep: String,
+      showProject: Reference => String,
+      mask: ScopeMask): String =
     displayMasked(scope, sep, showProject, mask, false)
 
   /**
@@ -170,11 +175,12 @@ object Scope {
    * Technically speaking an unspecified configuration axis defaults to
    * the scope delegation (first configuration defining the key, then Zero).
    */
-  def displayMasked(scope: Scope,
-                    sep: String,
-                    showProject: Reference => String,
-                    mask: ScopeMask,
-                    showZeroConfig: Boolean): String = {
+  def displayMasked(
+      scope: Scope,
+      sep: String,
+      showProject: Reference => String,
+      mask: ScopeMask,
+      showZeroConfig: Boolean): String = {
     import scope.{ project, config, task, extra }
     val zeroConfig = if (showZeroConfig) "Zero /" else ""
     val configPrefix = config.foldStrict(display, zeroConfig, "./")
@@ -183,11 +189,8 @@ object Scope {
     val postfix = if (extras.isEmpty) "" else extras.mkString("(", ", ", ")")
     if (scope == GlobalScope) "Global / " + sep + postfix
     else
-      mask.concatShow(appendSpace(projectPrefix(project, showProject)),
-                      appendSpace(configPrefix),
-                      appendSpace(taskPrefix),
-                      sep,
-                      postfix)
+      mask.concatShow(appendSpace(projectPrefix(project, showProject)), appendSpace(configPrefix),
+        appendSpace(taskPrefix), sep, postfix)
   }
 
   private[sbt] def appendSpace(s: String): String =
@@ -195,20 +198,18 @@ object Scope {
     else s + " "
 
   // sbt 0.12 style
-  def display012StyleMasked(scope: Scope,
-                            sep: String,
-                            showProject: Reference => String,
-                            mask: ScopeMask): String = {
+  def display012StyleMasked(
+      scope: Scope,
+      sep: String,
+      showProject: Reference => String,
+      mask: ScopeMask): String = {
     import scope.{ project, config, task, extra }
     val configPrefix = config.foldStrict(displayConfigKey012Style, "*:", ".:")
     val taskPrefix = task.foldStrict(_.label + "::", "", ".::")
     val extras = extra.foldStrict(_.entries.map(_.toString).toList, Nil, Nil)
     val postfix = if (extras.isEmpty) "" else extras.mkString("(", ", ", ")")
-    mask.concatShow(projectPrefix012Style(project, showProject012Style),
-                    configPrefix,
-                    taskPrefix,
-                    sep,
-                    postfix)
+    mask.concatShow(projectPrefix012Style(project, showProject012Style), configPrefix, taskPrefix,
+      sep, postfix)
   }
 
   def equal(a: Scope, b: Scope, mask: ScopeMask): Boolean =
@@ -217,12 +218,14 @@ object Scope {
       (!mask.task || a.task == b.task) &&
       (!mask.extra || a.extra == b.extra)
 
-  def projectPrefix(project: ScopeAxis[Reference],
-                    show: Reference => String = showProject): String =
+  def projectPrefix(
+      project: ScopeAxis[Reference],
+      show: Reference => String = showProject): String =
     project.foldStrict(show, "Zero /", "./")
 
-  def projectPrefix012Style(project: ScopeAxis[Reference],
-                            show: Reference => String = showProject): String =
+  def projectPrefix012Style(
+      project: ScopeAxis[Reference],
+      show: Reference => String = showProject): String =
     project.foldStrict(show, "*/", "./")
 
   def showProject = (ref: Reference) => Reference.display(ref) + " /"
@@ -319,9 +322,10 @@ object Scope {
     }
     new ProjectDelegates(ref, refDelegates, configs.toMap)
   }
-  def axisDelegates[T](direct: (ResolvedReference, T) => Seq[T],
-                       ref: ResolvedReference,
-                       init: T): (T, Seq[ScopeAxis[T]]) =
+  def axisDelegates[T](
+      direct: (ResolvedReference, T) => Seq[T],
+      ref: ResolvedReference,
+      init: T): (T, Seq[ScopeAxis[T]]) =
     (init, linearize(Select(init))(direct(ref, _)))
 
   def linearize[T](axis: ScopeAxis[T], appendZero: Boolean = true)(

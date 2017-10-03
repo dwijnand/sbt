@@ -38,11 +38,7 @@ class ErrorSpec extends AbstractSpec {
           | } /* */ //
           |}
         """.stripMargin
-      MissingBracketHandler.findMissingText(
-        buildSbt,
-        buildSbt.length,
-        2,
-        "fake.txt",
+      MissingBracketHandler.findMissingText(buildSbt, buildSbt.length, 2, "fake.txt",
         new MessageOnlyException("fake")) must throwA[MessageOnlyException]
     }
 

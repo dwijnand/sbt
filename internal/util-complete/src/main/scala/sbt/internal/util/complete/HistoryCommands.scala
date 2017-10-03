@@ -37,8 +37,9 @@ object HistoryCommands {
   )
 
   def helpString =
-    "History commands:\n   " + (descriptions
-      .map { case (c, d) => c + "    " + d })
+    "History commands:\n   " + (
+        descriptions
+          .map { case (c, d) => c + "    " + d })
       .mkString("\n   ")
 
   def printHelp(): Unit = println(helpString)

@@ -78,7 +78,7 @@ private[sbt] object SbtParser {
       val reporter = reporters.get(fileName)
       if (reporter == null) {
         scalacGlobalInitReporter.getOrElse(
-          sys.error(s"Sbt forgot to initialize `scalacGlobalInitReporter`."))
+            sys.error(s"Sbt forgot to initialize `scalacGlobalInitReporter`."))
       } else reporter
     }
 
@@ -132,9 +132,10 @@ private[sbt] object SbtParser {
    *                    The reporter id must be unique per parsing session.
    * @return
    */
-  private[sbt] def parse(code: String,
-                         filePath: String,
-                         reporterId0: Option[String]): (Seq[Tree], String) = {
+  private[sbt] def parse(
+      code: String,
+      filePath: String,
+      reporterId0: Option[String]): (Seq[Tree], String) = {
     import defaultGlobalForParser._
     val reporterId = reporterId0.getOrElse(s"$filePath-${Random.nextInt}")
     val reporter = globalReporter.getOrCreateReporter(reporterId)
@@ -215,7 +216,7 @@ private[sbt] case class SbtParser(file: File, lines: Seq[String]) extends Parsed
       // Issue errors
       val positionLine = badTree.pos.line
       throw new MessageOnlyException(
-        s"""[$fileName]:$positionLine: Pattern matching in val statements is not supported""".stripMargin)
+          s"""[$fileName]:$positionLine: Pattern matching in val statements is not supported""".stripMargin)
     }
 
     val (imports: Seq[Tree], statements: Seq[Tree]) = parsedTrees partition {
@@ -253,9 +254,8 @@ private[sbt] case class SbtParser(file: File, lines: Seq[String]) extends Parsed
       }
     val stmtTreeLineRange = statements flatMap convertStatement
     val importsLineRange = importsToLineRanges(content, imports)
-    (importsLineRange,
-     stmtTreeLineRange.map { case (stmt, _, lr)   => (stmt, lr) },
-     stmtTreeLineRange.map { case (stmt, tree, _) => (stmt, tree) })
+    (importsLineRange, stmtTreeLineRange.map { case (stmt, _, lr) => (stmt, lr) },
+      stmtTreeLineRange.map { case (stmt, tree, _)                => (stmt, tree) })
   }
 
   /**
@@ -293,8 +293,9 @@ private[sbt] case class SbtParser(file: File, lines: Seq[String]) extends Parsed
    * @param importsInOneLine - imports in line
    * @return - text
    */
-  private def extractLine(modifiedContent: String,
-                          importsInOneLine: Seq[((Int, Int), Int)]): String = {
+  private def extractLine(
+      modifiedContent: String,
+      importsInOneLine: Seq[((Int, Int), Int)]): String = {
     val (begin, end) = importsInOneLine.foldLeft((Int.MaxValue, Int.MinValue)) {
       case ((min, max), ((start, end), _)) =>
         (min.min(start), max.max(end))
@@ -335,16 +336,12 @@ private[sbt] object MissingBracketHandler {
           case Success(_) =>
             text
           case Failure(_) =>
-            findMissingText(content,
-                            index + 1,
-                            positionLine,
-                            fileName,
-                            originalException,
-                            reporterId)
+            findMissingText(content, index + 1, positionLine, fileName, originalException,
+              reporterId)
         }
       case _ =>
         throw new MessageOnlyException(
-          s"""[$fileName]:$positionLine: ${originalException.getMessage}""".stripMargin)
+            s"""[$fileName]:$positionLine: ${originalException.getMessage}""".stripMargin)
     }
   }
 
