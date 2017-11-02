@@ -1,4 +1,4 @@
-/* ONLY
+/*
 rule = "class:fix.sbt_v1_1"
 */
 package fix
