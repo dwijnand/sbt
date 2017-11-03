@@ -77,6 +77,7 @@ final case class sbt_v1_1(index: SemanticdbIndex) extends SemanticRule(index, "s
      * @param scope the scope we're building up
      * @return the patch for the initial, root term, possibly Patch.empty
      */
+    // TODO: Collapse ScopeLike into a ScopeCtx, which includes z and p
     @tailrec def loop(z: Term, p: Patch, term: Term, scope: ScopeLike): Patch = {
       handled += term
       term match {
@@ -126,6 +127,7 @@ sealed trait ScopeLike {
   def inConf(c: Term): ScopeLike = modScope(s => s.copy(conf = s.conf orElse Some(c)))
   def inTask(a: Term): ScopeLike = modScope(s => s.copy(task = s.task orElse Some(a)))
 
+  // TODO: See if it's possible to traverse the Semantic DB to understand if a key is already scoped.
   def inScoped(s: Term)(implicit index: SemanticdbIndex): ScopeLike = {
     val Keys = Symbol("_root_.sbt.Keys.")
     val isInKeys = index.symbol(s) match {
