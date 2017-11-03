@@ -95,7 +95,7 @@ final case class sbt_v1_1(index: SemanticdbIndex) extends SemanticRule(index, "s
         case _ if scope == Scope(None, None, None) => Patch.empty // opt: avoid replaceTree
         case _                                     =>
           def slash(lhs: Term, rhs: Term) = Term.ApplyInfix(lhs, Term.Name("/"), Nil, List(rhs))
-          def replace(newTree: Term) = ctx.replaceTree(z, newTree.syntax)
+          def replace(newTree: Term) = ctx.replaceTree(z, newTree.syntax) + preserveParens(z.tokens)
           scope match {
             case SpecificScope(scope) => replace(slash(scope, term))
             case s: Scope             => p + replace(List(s.ref, s.conf, s.task, Some(term)).flatten.reduce(slash))
@@ -103,6 +103,14 @@ final case class sbt_v1_1(index: SemanticdbIndex) extends SemanticRule(index, "s
           }
       }
     }
+
+    def preserveParens(tokens: Tokens) =
+      for {
+        head <- tokens.headOption
+        if head.is[Token.LeftParen]
+        last <- tokens.lastOption
+        if last.is[Token.RightParen]
+      } yield ctx.addLeft(head, "(") + ctx.addRight(last, ")")
 
     ctx.tree.collect {
       case term: Term if !handled(term) => loop(term, Patch.empty, term, Scope(None, None, None))

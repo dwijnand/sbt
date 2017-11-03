@@ -17,6 +17,17 @@ object sbt_v1_1_Test {
   // test non-infix syntax
   Global / cancelable
 
+  // test parentheses are kept
+  (Global / cancelable).key
+  Def task ((Global / cancelable).value)
+  cancelable := (Global / cancelable).value
+  crossScalaVersions := {
+    val log = sLog.value
+    val manifest = baseDirectory.value / ".travis.yml"
+    val default = (Global / crossScalaVersions).value
+    default
+  }
+
   // test Scope being defined multiple times
   Global / cancelable
   Global / skip
