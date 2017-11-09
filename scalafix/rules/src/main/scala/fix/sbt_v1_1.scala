@@ -8,31 +8,31 @@ import scalafix._, util._
 final case class sbt_v1_1(index: SemanticdbIndex) extends SemanticRule(index, "sbt_v1_1") {
 
   // These are the scoping methods that we are rewriting to slash notation.
-  // We define them inside Ex1/Ex2/Ex3 (stand for "extractors") to use them in pattern matching.
+  // We define them inside Ex (stand for "extractor") to use them in pattern matching.
 
-  val inScope = new Ex1(
+  val inScope = new Ex(
     "_root_.sbt.SettingKey#in(Lsbt/Scope;)Lsbt/SettingKey;.",
     "_root_.sbt.TaskKey#in(Lsbt/Scope;)Lsbt/TaskKey;.",
     "_root_.sbt.InputKey#in(Lsbt/Scope;)Lsbt/InputKey;."
   )
 
-  val inRef    = new Ex1("_root_.sbt.Scoped.ScopingSetting#in(Lsbt/Reference;)Ljava/lang/Object;.")
-  val inScoped = new Ex1("_root_.sbt.Scoped.ScopingSetting#in(Lsbt/Scoped;)Ljava/lang/Object;.")
-  val inConf   = new Ex1("_root_.sbt.Scoped.ScopingSetting#in(Lsbt/ConfigKey;)Ljava/lang/Object;.")
+  val inRef    = new Ex("_root_.sbt.Scoped.ScopingSetting#in(Lsbt/Reference;)Ljava/lang/Object;.")
+  val inScoped = new Ex("_root_.sbt.Scoped.ScopingSetting#in(Lsbt/Scoped;)Ljava/lang/Object;.")
+  val inConf   = new Ex("_root_.sbt.Scoped.ScopingSetting#in(Lsbt/ConfigKey;)Ljava/lang/Object;.")
 
-  val inConfAndScoped = new Ex2(
+  val inConfAndScoped = new Ex(
     "_root_.sbt.Scoped.ScopingSetting#in(Lsbt/ConfigKey;Lsbt/Scoped;)Ljava/lang/Object;.")
 
-  val inRefAndConf = new Ex2(
+  val inRefAndConf = new Ex(
     "_root_.sbt.Scoped.ScopingSetting#in(Lsbt/Reference;Lsbt/ConfigKey;)Ljava/lang/Object;.")
 
-  val inRefAndScoped = new Ex2(
+  val inRefAndScoped = new Ex(
     "_root_.sbt.Scoped.ScopingSetting#in(Lsbt/Reference;Lsbt/Scoped;)Ljava/lang/Object;.")
 
-  val inRefAndConfAndScoped = new Ex3(
+  val inRefAndConfAndScoped = new Ex(
     "_root_.sbt.Scoped.ScopingSetting#in(Lsbt/Reference;Lsbt/ConfigKey;Lsbt/Scoped;)Ljava/lang/Object;.")
 
-  val in3ScopeAxes = new Ex3(
+  val in3ScopeAxes = new Ex(
     "_root_.sbt.Scoped.ScopingSetting#in(Lsbt/ScopeAxis;Lsbt/ScopeAxis;Lsbt/ScopeAxis;)Ljava/lang/Object;.")
 
   // TODO: Test this on plugin
@@ -199,8 +199,7 @@ final case class SpecificScope(scope: Term) extends ScopeLike
 case object WeirdScope extends ScopeLike
 
 
-sealed abstract class Extractor[A](implicit idx: SemanticdbIndex) {
-  def symbols: Seq[String]
+final class Ex[A](symbols: String*)(implicit idx: SemanticdbIndex) {
   private[this] val in = SymbolMatcher.exact(symbols map (Symbol(_)): _*)
 
   def unapply(t: Tree): Option[(Term, List[Term])] = t match {
@@ -209,7 +208,3 @@ sealed abstract class Extractor[A](implicit idx: SemanticdbIndex) {
     case _                                        => None
   }
 }
-
-final class Ex1(val symbols: String*)(implicit index: SemanticdbIndex) extends Extractor
-final class Ex2(val symbols: String*)(implicit index: SemanticdbIndex) extends Extractor
-final class Ex3(val symbols: String*)(implicit index: SemanticdbIndex) extends Extractor
