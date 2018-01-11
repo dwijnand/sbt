@@ -1,7 +1,6 @@
 package fix
 
 import scala.annotation.tailrec
-import org.langmeta.semanticdb.Symbol.Global
 import scala.meta._
 import scalafix._, util._
 
@@ -131,8 +130,8 @@ sealed trait ScopeLike {
   def inScoped(s: Term)(implicit index: SemanticdbIndex): ScopeLike = {
     val Keys = Symbol("_root_.sbt.Keys.")
     val isInKeys = index.symbol(s) match {
-      case Some(Global(Keys, _)) => true
-      case _                     => false
+      case Some(Symbol.Global(Keys, _)) => true
+      case _                            => false
     }
     val attrKey = if (isInKeys) s else Term.Select(s, Term.Name("key"))
     inTask(attrKey)
