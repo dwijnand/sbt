@@ -246,7 +246,7 @@ object Keys {
   val packageSrc = taskKey[File]("Produces a source artifact, such as a jar containing sources and resources.").withRank(AMinusTask)
 
   val packageOptions = taskKey[Seq[PackageOption]]("Options for packaging.").withRank(BTask)
-  val packageConfiguration = taskKey[Package.Configuration]("Collects all inputs needed for packaging.").withRank(DTask)
+  val packageConfiguration = taskKey[Packaging.Configuration]("Collects all inputs needed for packaging.").withRank(DTask)
   val artifactPath = settingKey[File]("The location of a generated artifact.").withRank(BPlusSetting)
   val artifact = settingKey[Artifact]("Describes an artifact.").withRank(BMinusSetting)
   val artifactClassifier = settingKey[Option[String]]("Sets the classifier used by the default artifact definition.").withRank(BSetting)

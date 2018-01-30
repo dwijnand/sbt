@@ -25,7 +25,7 @@ import sbt.util.CacheImplicits._
 import sbt.util.Tracked.inputChanged
 
 sealed trait PackageOption
-object Package {
+object Packaging {
   final case class JarManifest(m: Manifest) extends PackageOption {
     assert(m != null)
   }

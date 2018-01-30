@@ -11,5 +11,5 @@ packageOptions := {
     mf.getMainAttributes.put(Attributes.Name.CLASS_PATH, scalaInstance.value.libraryJar.getAbsolutePath)
     mf
   }
-  Package.JarManifest(manifestExtra) +: packageOptions.value
+  Packaging.JarManifest(manifestExtra) +: packageOptions.value
 }

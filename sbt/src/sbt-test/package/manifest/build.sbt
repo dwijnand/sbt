@@ -15,5 +15,5 @@ packageOptions in (Compile, packageBin) := {
     mf.getMainAttributes.put(Attributes.Name.CLASS_PATH, makeString(scalaInstance.value.libraryJar :: Nil))
     mf
   }
-  (packageOptions in (Compile, packageBin)).value :+ Package.JarManifest(manifestExtra)
+  (packageOptions in (Compile, packageBin)).value :+ Packaging.JarManifest(manifestExtra)
 }

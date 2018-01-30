@@ -979,14 +979,14 @@ object Defaults extends BuildCommon {
         val orgName = organizationName.value
         val main = mainClass.value
         val old = packageOptions.value
-        Package.addSpecManifestAttributes(n, ver, orgName) +:
-          Package.addImplManifestAttributes(n, ver, homepage.value, org, orgName) +:
-          main.map(Package.MainClass.apply) ++: old
+        Packaging.addSpecManifestAttributes(n, ver, orgName) +:
+          Packaging.addImplManifestAttributes(n, ver, homepage.value, org, orgName) +:
+          main.map(Packaging.MainClass.apply) ++: old
       }
     )) ++
       inTask(packageSrc)(
         Seq(
-          packageOptions := Package.addSpecManifestAttributes(
+          packageOptions := Packaging.addSpecManifestAttributes(
             name.value,
             version.value,
             organizationName.value) +: packageOptions.value
@@ -1080,13 +1080,13 @@ object Defaults extends BuildCommon {
     Def.task {
       val config = packageConfiguration.value
       val s = streams.value
-      Package(config, s.cacheStoreFactory, s.log)
+      Packaging(config, s.cacheStoreFactory, s.log)
       config.jar
     }
 
-  def packageConfigurationTask: Initialize[Task[Package.Configuration]] =
+  def packageConfigurationTask: Initialize[Task[Packaging.Configuration]] =
     Def.task {
-      new Package.Configuration(mappings.value, artifactPath.value, packageOptions.value)
+      new Packaging.Configuration(mappings.value, artifactPath.value, packageOptions.value)
     }
 
   def askForMainClass(classes: Seq[String]): Option[String] =
