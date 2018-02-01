@@ -32,19 +32,26 @@ trait Parsers {
   /** Parses any single character and provides that character as the result. */
   lazy val any: Parser[Char] = charClass(_ => true, "any character")
 
-  /** Set that contains each digit in a String representation.*/
-  lazy val DigitSet = Set("0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
+  lazy val NonZeroDigitSet = Set('1', '2', '3', '4', '5', '6', '7', '8', '9')
 
-  /** Parses any single digit and provides that digit as a Char as the result.*/
-  lazy val Digit = charClass(_.isDigit, "digit") examples DigitSet
+  /** Set that contains each digit in a String representation. */
+  lazy val DigitSet = NonZeroDigitSet + '0'
+
+  /** Parses any single digit and provides that digit as a Char as the result. */
+  lazy val Digit = charClass(_.isDigit, "digit") examples (DigitSet map (_.toString))
+
+  lazy val NonZeroDigit = (
+    charClass(NonZeroDigitSet contains _, "non-zero digit")
+      examples (NonZeroDigitSet map (_.toString))
+  )
 
   /** Set containing Chars for hexadecimal digits 0-9 and A-F (but not a-f). */
   lazy val HexDigitSet =
     Set('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F')
 
   /** Parses a single hexadecimal digit (0-9, a-f, A-F). */
-  lazy val HexDigit = charClass(c => HexDigitSet(c.toUpper), "hex digit") examples HexDigitSet.map(
-    _.toString)
+  lazy val HexDigit =
+    charClass(c => HexDigitSet(c.toUpper), "hex digit") examples HexDigitSet.map(_.toString)
 
   /** Parses a single letter, according to Char.isLetter, into a Char. */
   lazy val Letter = charClass(_.isLetter, "letter")
@@ -189,6 +196,8 @@ trait Parsers {
 
   /** Parses an unsigned integer. */
   lazy val NatBasic = mapOrFail(Digit.+)(_.mkString.toInt)
+
+  lazy val NonZeroNatBasic = mapOrFail(NonZeroDigit ~ Digit.*)(x => (x._1 +: x._2).mkString.toInt)
 
   private[this] def toInt(neg: Option[Char], digits: Seq[Char]): Int =
     (neg.toSeq ++ digits).mkString.toInt

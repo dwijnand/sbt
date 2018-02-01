@@ -91,10 +91,10 @@ sealed trait RichParser[A] {
    */
   def &(o: Parser[_]): Parser[A]
 
-  /** Explicitly defines the completions for the original Parser.*/
+  /** Explicitly defines the completions for the original Parser. */
   def examples(s: String*): Parser[A]
 
-  /** Explicitly defines the completions for the original Parser.*/
+  /** Explicitly defines the completions for the original Parser. */
   def examples(s: Set[String], check: Boolean = false): Parser[A]
 
   /**
@@ -331,7 +331,7 @@ trait ParserMain {
     def examples(s: String*): Parser[A] = examples(s.toSet)
 
     def examples(s: Set[String], check: Boolean = false): Parser[A] =
-      examples(new FixedSetExamples(s), s.size, check)
+      examples(FixedSetExamples(s), s.size, check)
 
     def examples(
         s: ExampleSource,

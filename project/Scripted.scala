@@ -47,19 +47,28 @@ object Scripted {
   def scriptedParser(scriptedBase: File): Parser[Seq[String]] = {
     import DefaultParsers._
 
-    val scriptedFiles: NameFilter = ("test": NameFilter) | "pending"
+    // these can be removed when we upgrade to sbt 1.2.0
+    val NonZeroDigitSet = Set('1', '2', '3', '4', '5', '6', '7', '8', '9')
+    val NonZeroDigit = (
+      charClass(NonZeroDigitSet contains _, "non-zero digit")
+        examples (NonZeroDigitSet map (_.toString))
+    )
+    val NonZeroNatBasic = mapOrFail(NonZeroDigit ~ Digit.*)(x => (x._1 +: x._2).mkString.toInt)
+
+    val scriptedFiles = ("test": NameFilter) | "pending"
+
     val pairs = (scriptedBase * AllPassFilter * AllPassFilter * scriptedFiles).get map {
       (f: File) =>
         val p = f.getParentFile
         (p.getParentFile.getName, p.getName)
     }
-    val pairMap = pairs.groupBy(_._1).mapValues(_.map(_._2).toSet)
+    val pairMap = pairs.groupBy(_._1) map { case (group, files) => group -> files.map(_._2).toSet }
 
     val id = charClass(c => !c.isWhitespace && c != '/').+.string
     val groupP = token(id.examples(pairMap.keySet)) <~ token('/')
 
     // A parser for page definitions
-    val pageP: Parser[ScriptedTestPage] = ("*" ~ NatBasic ~ "of" ~ NatBasic) map {
+    val pageP: Parser[ScriptedTestPage] = ("*" ~ NonZeroNatBasic ~ "of" ~ NonZeroNatBasic) map {
       case _ ~ page ~ _ ~ total => ScriptedTestPage(page, total)
     }
 
@@ -73,9 +82,8 @@ object Scripted {
       else dropped.take(pageSize)
     }
 
-    def nameP(group: String) = {
+    def nameP(group: String) =
       token("*".id | id.examples(pairMap.getOrElse(group, Set.empty[String])))
-    }
 
     val PagedIds: Parser[Seq[String]] =
       for {
