@@ -22,6 +22,9 @@ import sbt.internal.protocol.{
 }
 
 object Serialization {
+  private[this] final val EOL = "\r\n"
+  private[this] final val EOL_LENGTH = EOL.length
+
   private[sbt] val VsCode = "application/vscode-jsonrpc; charset=utf-8"
 
   def serializeEvent[A: JsonFormat](event: A): Array[Byte] = {
@@ -58,14 +61,28 @@ object Serialization {
   private[sbt] def serializeResponse[A: JsonWriter](message: A): Array[Byte] = {
     val json: JValue = Converter.toJson[A](message).get
     val body = CompactPrinter(json)
-    val bodyLength = body.getBytes("UTF-8").length
+    val bodyLength = body.getBytes("UTF-8").length.toString
 
-    Iterator(
-      s"Content-Length: $bodyLength",
-      s"Content-Type: $VsCode",
-      "",
-      body
-    ).mkString("\r\n").getBytes("UTF-8")
+    val contentLengthHeader = "Content-Length: "
+    val contentTypeHeader = "Content-Type: "
+
+    val sb = new java.lang.StringBuilder(
+      contentLengthHeader.length + bodyLength.length + EOL_LENGTH +
+        contentTypeHeader.length + VsCode.length + EOL_LENGTH +
+        EOL_LENGTH +
+        body.length
+    )
+
+    sb.append(contentLengthHeader)
+      .append(bodyLength)
+      .append(EOL)
+      .append(contentTypeHeader)
+      .append(VsCode)
+      .append(EOL)
+      .append(EOL)
+      .append(body)
+
+    sb.toString.getBytes("UTF-8")
   }
 
   /**
