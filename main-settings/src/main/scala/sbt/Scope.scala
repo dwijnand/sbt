@@ -34,6 +34,22 @@ final case class Scope(project: ScopeAxis[Reference],
     case Scope(_, _, _, This)          => s"$project / $config / $task"
     case _                             => s"Scope($project, $config, $task, $extra)"
   }
+
+  def toCodeString: String = {
+    val project = this.project.map {
+      case ThisBuild                  => "ThisBuild"
+      case BuildRef(build)            => s"""BuildRef(new URI("$build"))"""
+      case ProjectRef(build, project) => s"""ProjectRef(new URI("$build"), "$project")"""
+      case LocalProject(project)      => s"""LocalProject("$project")"""
+      case RootProject(build)         => s"""RootProject(new URI("$build"))"""
+      case LocalRootProject           => "LocalRootProject"
+      case ThisProject                => "ThisProject"
+    }
+    val config = this.config.map(c => s"""ConfigKey("${c.name}")""")
+    val task = this.task.map(k => s"""AttributeKey("${k.label}")""")
+    s"Scope($project, $config, $task, $extra)"
+  }
+
 }
 object Scope {
   val ThisScope: Scope = Scope(This, This, This, This)
