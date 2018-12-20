@@ -22,11 +22,11 @@ object SettingsTest extends Properties("settings") {
 
   property("Basic settings test") = secure(all(tests: _*))
 
-  property("Basic chain") = forAll(chainLengthGen) { (i: Int) =>
+  property("Basic chain") = forAllNoShrink(chainLengthGen) { (i: Int) =>
     val abs = math.abs(i)
     singleIntTest(chain(abs, value(0)), abs)
   }
-  property("Basic bind chain") = forAll(chainLengthGen) { (i: Int) =>
+  property("Basic bind chain") = forAllNoShrink(chainLengthGen) { (i: Int) =>
     val abs = math.abs(i)
     singleIntTest(chainBind(value(abs)), 0)
   }
@@ -53,7 +53,7 @@ object SettingsTest extends Properties("settings") {
       val attrKeys = mkAttrKeys[Int](nr).filter(_.forall(_.label != "ch"))
       attrKeys map (_ map (ak => ScopedKey(Scope(0), ak)))
     }.label("scopedKeys").filter(_.nonEmpty)
-    forAll(genScopedKeys) { scopedKeys =>
+    forAllNoShrink(genScopedKeys) { scopedKeys =>
       try {
         // Note; It's evil to grab last IF you haven't verified the set can't be empty.
         val last = scopedKeys.last
@@ -132,7 +132,7 @@ object SettingsTest extends Properties("settings") {
     "DerivedSetting in ThisBuild scopes derived settings under projects thus allowing safe +="
   ) = forAllNoShrink(Gen.choose(1, 100)) { derivedSettingsScope }
   final def derivedSettingsScope(nrProjects: Int): Prop = {
-    forAll(mkAttrKeys[Int](2)) {
+    forAllNoShrink(mkAttrKeys[Int](2)) {
       case List(key, derivedKey) =>
         val projectKeys = for { proj <- 1 to nrProjects } yield ScopedKey(Scope(1, proj), key)
         val projectDerivedKeys = for { proj <- 1 to nrProjects } yield

@@ -17,8 +17,8 @@ object DefaultParsersSpec extends Properties("DefaultParsers") {
     (s: String) => validID(s) == matches(ID, s)
   )
 
-  property("∀ s ∈ genID: matches(ID, s)") = forAll(genID)(s => matches(ID, s))
-  property("∀ s ∈ genID: validID(s)") = forAll(genID)(s => validID(s))
+  property("∀ s ∈ genID: matches(ID, s)") = forAllNoShrink(genID)(s => matches(ID, s))
+  property("∀ s ∈ genID: validID(s)") = forAllNoShrink(genID)(s => validID(s))
 
   private val chars: Seq[Char] = Char.MinValue to Char.MaxValue
   private val genID: Gen[String] =

@@ -14,7 +14,6 @@ import TaskTest.tryRun
 import TaskGen.MaxWorkers
 
 import org.scalacheck._
-import Prop.forAll
 import Transform.taskToNode
 import ConcurrentRestrictions.{ completionService, limitTotal, tagged => tagged0, TagMap }
 
@@ -26,11 +25,11 @@ object TaskSerial extends Properties("task serial") {
 
   def eval[T](t: Task[T]): T = tryRun(t, checkCycles, limitTotal(MaxWorkers))
 
-  property("Evaluates basic") = forAll { (i: Int) =>
+  property("Evaluates basic") = Prop.forAll { (i: Int) =>
     checkResult(eval(task(i)), i)
   }
 
-  property("Evaluates Function0") = forAll { (i: Int) =>
+  property("Evaluates Function0") = Prop.forAll { (i: Int) =>
     checkResult(eval(() => i), i)
   }
 

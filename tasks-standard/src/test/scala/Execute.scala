@@ -13,7 +13,7 @@ import TaskGen._
 
 object ExecuteSpec extends Properties("Execute") {
   val iGen = Arbitrary.arbInt.arbitrary
-  property("evaluates simple task") = forAll(iGen, MaxWorkersGen) { (i: Int, workers: Int) =>
+  property("evaluates simple task") = forAllNoShrink(iGen, MaxWorkersGen) { (i: Int, workers: Int) =>
     ("Workers: " + workers) |:
       checkResult(tryRun(task(i), false, workers), i)
   }
@@ -26,7 +26,7 @@ object ExecuteSpec extends Properties("Execute") {
 		}
 	}*/
 
-  property("evaluates simple mapped task") = forAll(iGen, MaxTasksGen, MaxWorkersGen) {
+  property("evaluates simple mapped task") = forAllNoShrink(iGen, MaxTasksGen, MaxWorkersGen) {
     (i: Int, times: Int, workers: Int) =>
       ("Workers: " + workers) |: ("Value: " + i) |: ("Times: " + times) |: {
         def result = tryRun(task(i).map(_ * times), false, workers)
@@ -42,7 +42,7 @@ object ExecuteSpec extends Properties("Execute") {
       }
   }
 
-  property("evaluates simple bind") = forAll(iGen, MaxTasksGen, MaxWorkersGen) {
+  property("evaluates simple bind") = forAllNoShrink(iGen, MaxTasksGen, MaxWorkersGen) {
     (i: Int, times: Int, workers: Int) =>
       ("Workers: " + workers) |: ("Value: " + i) |: ("Times: " + times) |: {
         def result = tryRun(task(i).flatMap(x => task(x * times)), false, workers)

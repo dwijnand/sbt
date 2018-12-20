@@ -12,7 +12,7 @@ import Prop._
 import TaskGen._
 
 object TaskRunnerSortTest extends Properties("TaskRunnerSort") {
-  property("sort") = forAll(TaskListGen, MaxWorkersGen) { (list: List[Int], workers: Int) =>
+  property("sort") = forAllNoShrink(TaskListGen, MaxWorkersGen) { (list: List[Int], workers: Int) =>
     val a = list.toArray
     val sorted = a.toArray
     java.util.Arrays.sort(sorted)

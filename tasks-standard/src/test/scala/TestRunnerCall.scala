@@ -12,7 +12,7 @@ import Prop._
 import TaskGen._
 
 object TaskRunnerCallTest extends Properties("TaskRunner Call") {
-  property("calculates fibonacci") = forAll(MaxTasksGen, MaxWorkersGen) { (i: Int, workers: Int) =>
+  property("calculates fibonacci") = forAllNoShrink(MaxTasksGen, MaxWorkersGen) { (i: Int, workers: Int) =>
     (i > 0) ==> {
       val f = fibDirect(i)
       ("Workers: " + workers) |: ("i: " + i) |: ("fib(i): " + f) |: {
