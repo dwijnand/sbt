@@ -59,12 +59,15 @@ object TestBuild {
     override def toString =
       env.toString + "\n" + "current: " + current + "\nSettings:\n\t" + showData + keyMap.keys
         .mkString("All keys:\n\t", ", ", "")
+
     def showKeys(map: AttributeMap): String = map.keys.mkString("\n\t   ", ",", "\n")
+
     def showData: String = {
       val scopeStrings =
         for ((scope, map) <- data.data) yield (Scope.display(scope, "<key>"), showKeys(map))
       scopeStrings.toSeq.sorted.map(t => t._1 + t._2).mkString("\n\t")
     }
+
     val extra: BuildUtil[Proj] = {
       val getp = (build: URI, project: String) => env.buildMap(build).projectMap(project)
       new BuildUtil(
@@ -120,9 +123,11 @@ object TestBuild {
       (taskAxes, zero.toSet, single.toSet, multi.toSet)
     }
   }
-  case class Env(builds: Vector[Build], tasks: Vector[Taskk]) {
+
+  final case class Env(builds: Vector[Build], tasks: Vector[Taskk]) {
     override def toString =
       "Env:\n  " + "  Tasks:\n    " + tasks.mkString("\n    ") + "\n" + builds.mkString("\n  ")
+
     val root = builds.head
     val buildMap = mapBy(builds)(_.uri)
     val taskMap = mapBy(tasks)(getKey)
@@ -158,16 +163,18 @@ object TestBuild {
         c <- Zero +: p.configurations.map(c => Select(ConfigKey(c.name)))
       } yield Scope(project = ref, config = c, task = t, extra = Zero)
   }
+
   def getKey: Taskk => AttributeKey[_] = _.key
   def toConfigKey: Configuration => ConfigKey = c => ConfigKey(c.name)
+
   case class Build(uri: URI, projects: Seq[Proj]) {
     override def toString = "Build " + uri.toString + " :\n    " + projects.mkString("\n    ")
-    val allProjects = projects map { p =>
-      (ProjectRef(uri, p.id), p)
-    }
+
+    val allProjects = projects map (p => (ProjectRef(uri, p.id), p))
     val root = projects.head
     val projectMap = mapBy(projects)(_.id)
   }
+
   case class Proj(
       id: String,
       delegates: Seq[ProjectRef],
@@ -184,10 +191,7 @@ object TestBuild {
       key.label + " (delegates: " + delegates.map(_.key.label).mkString(", ") + ")"
   }
 
-  def mapBy[K, T](s: Seq[T])(f: T => K): Map[K, T] =
-    s map { t =>
-      (f(t), t)
-    } toMap;
+  def mapBy[K, T](s: Seq[T])(f: T => K): Map[K, T] = s.map(t => (f(t), t)).toMap
 
   implicit lazy val arbKeys: Arbitrary[TestKeys] = Arbitrary(keysGen)
   lazy val keysGen: Gen[TestKeys] = for (env <- mkEnv; keyCount <- chooseShrinkable(1, KeysPerEnv);
@@ -293,7 +297,8 @@ object TestBuild {
 
   val uriStringGen: Gen[String] = nonEmptyListOf(uriChar).map(_.mkString)
 
-  val optIDGen: Gen[Option[String]] = oneOf(uriStringGen.map(some.fn), Gen.const(None))
+  val optIDGen: Gen[Option[String]] =
+    frequency(9 -> uriStringGen.map(some.fn), 1 -> Gen.const(None))
 
   val uriGen: Gen[URI] = {
     for {
