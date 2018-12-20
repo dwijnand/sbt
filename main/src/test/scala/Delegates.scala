@@ -67,19 +67,24 @@ object Delegates extends Properties("delegates") {
     allDelegates(keys) { (key, ds) =>
       key.project match {
         case Zero => true // filtering out of testing
-        case Select(ProjectRef(uri, _)) =>
-          val buildScoped = key.copy(project = Select(BuildRef(uri)))
-          val idxKey = ds.indexOf(key)
-          val idxB = ds.indexOf(buildScoped)
-          val z = key.copy(project = Zero)
-          val idxZ = ds.indexOf(z)
-          if (z == Scope.GlobalScope) true
-          else {
-            (s"idxKey = $idxKey; idxB = $idxB; idxZ = $idxZ") |:
-              (idxKey < idxB) && (idxB < idxZ)
+        case Select(rr: ResolvedReference) =>
+          rr match {
+            case ProjectRef(uri, _) =>
+              val buildScoped = key.copy(project = Select(BuildRef(uri)))
+              val idxKey = ds.indexOf(key)
+              val idxB = ds.indexOf(buildScoped)
+              val z = key.copy(project = Zero)
+              val idxZ = ds.indexOf(z)
+              if (z == Scope.GlobalScope) true
+              else {
+                (s"idxKey = $idxKey; idxB = $idxB; idxZ = $idxZ") |:
+                  (idxKey < idxB) && (idxB < idxZ)
+              }
+            case BuildRef(_) =>
+              ds.indexOf(key) < ds.indexOf(key.copy(project = Zero))
           }
-        case Select(BuildRef(_)) =>
-          ds.indexOf(key) < ds.indexOf(key.copy(project = Zero))
+        case This | Select(_: Reference) =>
+          sys.error(s"Unexpected unresolved delegate scope ${key.project}")
       }
     }
   }
