@@ -102,7 +102,10 @@ object ParseKey extends SeededProperties("Key parser test") {
 
   Property(
     "An unspecified conf axis resolves to the 1st conf directly defining the key or Zero",
-    "YLDz1KdrOrBnzhrJrPceY0XGEznMtZtl5-EBaK5taxC=",
+    List(
+      "YLDz1KdrOrBnzhrJrPceY0XGEznMtZtl5-EBaK5taxC=",
+      "bTqL0HwDJz_rbqyFW5jas_v6TKc3GBfd5yoqhyRwLtO=",
+    ),
   ) = forAll { (skm: StructureKeyMask) =>
     import skm.{ structure, key }
     val mask = ScopeMask(config = false)
