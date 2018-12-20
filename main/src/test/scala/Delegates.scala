@@ -96,17 +96,14 @@ object Delegates extends Properties("delegates") {
         case Select(config) if key.project.isSelect =>
           val p = key.project.toOption.get
           val r = keys.env.resolve(p)
-          val proj = keys.env.projectFor(r)
-          val inh: Vector[ConfigKey] = keys.env.inheritConfig(r, config)
-          val conf = proj.confMap(config.name)
+          val inh = keys.env.inheritConfig(r, config)
           if (inh.isEmpty) true
           else {
             val idxKey = ds.indexOf(key)
             val parent = inh.head
             val a = key.copy(config = Select(parent))
             val idxA = ds.indexOf(a)
-            (s"idxKey = $idxKey; a = $a; idxA = $idxA") |:
-              idxKey < idxA
+            (s"idxKey = $idxKey; a = $a; idxA = $idxA") |: idxKey < idxA
           }
         case _ => true
       }
