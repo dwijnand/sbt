@@ -289,9 +289,6 @@ abstract class TestBuild {
       idStart <- start
       idEnd <- listOfN(size - 1, end)
     } yield idStart + idEnd.mkString
-  } filter { id =>
-    // The filter ensure that shrinking works
-    id.headOption.exists(headFilter) && id.tail.forall(isIDChar)
   }
 
   val schemeGen: Gen[String] = {
