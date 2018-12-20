@@ -25,8 +25,8 @@ import sbt.librarymanagement.Configuration
  * This includes properly resolving omitted components.
  */
 object ParseKey extends Properties("Key parser test") {
-  property("An explicitly specified axis is always parsed to that explicit value") = forAll {
-    (skm: StructureKeyMask) =>
+  propertyWithSeed("An explicitly specified axis is always parsed to that explicit value", None) =
+    forAll { (skm: StructureKeyMask) =>
       import skm.{ structure, key }
       val hasZeroConfig = key.scope.config == Zero
       val mask = if (hasZeroConfig) skm.mask.copy(project = true) else skm.mask
@@ -40,9 +40,9 @@ object ParseKey extends Properties("Key parser test") {
             :| s"$sk.key == $expected.key: ${sk.key == expected.key}"
             :| s"${sk.scope} == ${expected.scope}: ${Scope.equal(sk.scope, expected.scope, mask)}"
       ) :| s"Expected: ${displayFull(expected)}"
-  }
+    }
 
-  property("An unspecified project axis resolves to the current project") = forAll {
+  propertyWithSeed("An unspecified project axis resolves to the current project", None) = forAll {
     (skm: StructureKeyMask) =>
       import skm.{ structure, key }
       val mask = skm.mask.copy(project = false)
@@ -55,21 +55,24 @@ object ParseKey extends Properties("Key parser test") {
       )
   }
 
-  property("An unspecified task axis resolves to Zero") = forAll { (skm: StructureKeyMask) =>
-    import skm.{ structure, key }
-    val mask = skm.mask.copy(task = false)
-    parseCheck(structure, key, mask)(_.scope.task == Zero)
+  propertyWithSeed("An unspecified task axis resolves to Zero", None) = forAll {
+    (skm: StructureKeyMask) =>
+      import skm.{ structure, key }
+      val mask = skm.mask.copy(task = false)
+      parseCheck(structure, key, mask)(_.scope.task == Zero)
   }
 
-  property("An unspecified conf axis resolves to the 1st conf directly defining the key or Zero") =
-    forAll { (skm: StructureKeyMask) =>
-      import skm.{ structure, key }
-      val mask = ScopeMask(config = false)
-      val resolvedConfig = Resolve.resolveConfig(structure.extra, key.key, mask)(key.scope).config
-      parseCheck(structure, key, mask)(
-        sk => (sk.scope.config == resolvedConfig) || (sk.scope == Scope.GlobalScope)
-      ) :| s"Expected configuration: ${resolvedConfig map (_.name)}"
-    }
+  propertyWithSeed(
+    "An unspecified conf axis resolves to the 1st conf directly defining the key or Zero",
+    None
+  ) = forAll { (skm: StructureKeyMask) =>
+    import skm.{ structure, key }
+    val mask = ScopeMask(config = false)
+    val resolvedConfig = Resolve.resolveConfig(structure.extra, key.key, mask)(key.scope).config
+    parseCheck(structure, key, mask)(
+      sk => (sk.scope.config == resolvedConfig) || (sk.scope == Scope.GlobalScope)
+    ) :| s"Expected configuration: ${resolvedConfig map (_.name)}"
+  }
 
   implicit val arbStructure: Arbitrary[Structure] = Arbitrary {
     for {
