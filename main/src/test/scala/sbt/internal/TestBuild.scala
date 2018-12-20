@@ -56,11 +56,16 @@ object TestBuild {
       keyIndex: KeyIndex,
       keyMap: Map[String, AttributeKey[_]]
   ) {
-    override def toString =
-      env.toString + "\n" + "current: " + current + "\nSettings:\n\t" + showData + keyMap.keys
-        .mkString("All keys:\n\t", ", ", "")
+    override def toString = {
+      s"""$env
+         |current: $current
+         |Settings:
+         |  $showData
+         |All keys:
+	       |  ${keyMap.keys.mkString(", ")}""".stripMargin
+    }
 
-    def showKeys(map: AttributeMap): String = map.keys.mkString("\n\t   ", ",", "\n")
+    def showKeys(map: AttributeMap): String = map.keys.mkString("\n\t   AttributeKey(", ",", ")")
 
     def showData: String = {
       val scopeStrings =
@@ -125,8 +130,19 @@ object TestBuild {
   }
 
   final case class Env(builds: Vector[Build], tasks: Vector[Taskk]) {
-    override def toString =
-      "Env:\n  " + "  Tasks:\n    " + tasks.mkString("\n    ") + "\n" + builds.mkString("\n  ")
+    override def toString = {
+      def seqToString[A](xs: Seq[A]) = xs match {
+        case Seq()  => ""
+        case Seq(x) => s" $x"
+        case _ =>
+          s"""
+             |    ${xs.mkString("\n    ")}""".stripMargin
+      }
+      s"""Env:
+         |    Tasks:${seqToString(tasks)}
+         |    Builds:${seqToString(builds)}
+         |""".stripMargin.trim
+    }
 
     val root = builds.head
     val buildMap = mapBy(builds)(_.uri)
@@ -168,7 +184,7 @@ object TestBuild {
   def toConfigKey: Configuration => ConfigKey = c => ConfigKey(c.name)
 
   case class Build(uri: URI, projects: Seq[Proj]) {
-    override def toString = "Build " + uri.toString + " :\n    " + projects.mkString("\n    ")
+    override def toString = "Build " + uri + " :\n    " + projects.mkString("\n    ")
 
     val allProjects = projects map (p => (ProjectRef(uri, p.id), p))
     val root = projects.head
@@ -180,16 +196,28 @@ object TestBuild {
       delegates: Seq[ProjectRef],
       configurations: Seq[Configuration]
   ) {
-    override def toString =
-      "Project " + id + "\n      Delegates:\n        " + delegates.mkString("\n        ") +
-        "\n      Configurations:\n        " + configurations.mkString("\n        ")
+    override def toString = {
+      def seqToString[A](xs: Seq[A], name: String) = xs match {
+        case Seq()  => ""
+        case Seq(x) => "\n      " + name + ": " + x
+        case _ =>
+          smashFold("\n      " + name + ":\n        ", xs.mkString("\n        "), "")
+      }
+      s"Project $id" +
+        seqToString(delegates, "Delegates") +
+        seqToString(configurations, "Configurations")
+    }
+
     val confMap = mapBy(configurations)(_.name)
   }
 
   case class Taskk(key: AttributeKey[String], delegates: Seq[Taskk]) {
     override def toString =
-      key.label + " (delegates: " + delegates.map(_.key.label).mkString(", ") + ")"
+      key.label + smashFold(" (delegates: ", delegates.map(_.key.label).mkString(", "), ")")
   }
+
+  def smashFold[A](prefix: String, xs: String, suffix: String) =
+    if (xs.isEmpty) "" else prefix + xs + suffix
 
   def mapBy[K, T](s: Seq[T])(f: T => K): Map[K, T] = s.map(t => (f(t), t)).toMap
 

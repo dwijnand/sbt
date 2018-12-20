@@ -135,7 +135,9 @@ object ParseKey extends SeededProperties("Key parser test") {
     } yield Def.setting(ScopedKey(scope, t.key), Def.value(""))
   }
 
-  final case class StructureKeyMask(structure: Structure, key: ScopedKey[_], mask: ScopeMask)
+  final case class StructureKeyMask(structure: Structure, key: ScopedKey[_], mask: ScopeMask) {
+    override def toString: String = "StructureKeyMask(...)"
+  }
 
   implicit val arbStructureKeyMask: Arbitrary[StructureKeyMask] = Arbitrary {
     for {
@@ -189,7 +191,7 @@ object ParseKey extends SeededProperties("Key parser test") {
         :| s"Mask: $mask"
         :| s"Key string: '$s'"
         :| s"Parsed: ${parsed.right.map(displayFull)}"
-        :| s"Structure: $structure"
+        :| s"Structure:\n$structure"
     )
   }
 
