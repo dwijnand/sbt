@@ -8,6 +8,8 @@
 package sbt
 package internal
 
+import scala.annotation.tailrec
+
 import Def.{ ScopedKey, Setting }
 import sbt.internal.util.{ AttributeKey, AttributeMap, Relation, Settings }
 import sbt.internal.util.Types.{ const, some }
@@ -20,8 +22,7 @@ import Gen._
 
 // Notes:
 //  Generator doesn't produce cross-build project dependencies or do anything with the 'extra' axis
-object TestBuild extends TestBuild
-abstract class TestBuild {
+object TestBuild {
   val MaxTasks = 6
   val MaxProjects = 7
   val MaxConfigs = 5
@@ -242,8 +243,7 @@ abstract class TestBuild {
   }
 
   implicit lazy val mkEnv: Gen[Env] = {
-    implicit val pGen = (uri: URI) =>
-      genProjects(uri)(idGen, MaxDepsGen, MaxProjectsGen, cGen.arbitrary)
+    val pGen = (uri: URI) => genProjects(uri)(idGen, MaxDepsGen, MaxProjectsGen, cGen.arbitrary)
     envGen(buildGen(uriGen, pGen), tGen.arbitrary)
   }
 
@@ -253,34 +253,23 @@ abstract class TestBuild {
       yield ScopeMask(project = p, config = c, task = t, extra = x)
   }
 
+  // exclude 0xFFFE due to this bug: http://bit.ly/1QryQZy
+  // also exclude 0xFFFF as it is not unicode: http://bit.ly/2cVBrzK
   val allChars: Seq[Char] = ((0x0000 to 0xD7FF) ++ (0xE000 to 0xFFFD)).map(_.toChar)
 
   val letters: Seq[Char] = allChars.filter(_.isLetter)
 
-  val upperLetters: Gen[Char] = Gen.oneOf(letters.filter(_.isUpper))
+  val upperLetters: Gen[Char] = oneOf(letters.filter(_.isUpper))
+  val lowerLetters: Gen[Char] = oneOf(letters.filter(_.isLower))
+  val lettersAndDigits: Gen[Char] = oneOf(allChars.filter(_.isLetterOrDigit))
 
-  val lowerLetters: Gen[Char] = Gen.oneOf(letters.filter(_.isLower))
+  val scalaIDCharGen: Gen[Char] = frequency(19 -> lettersAndDigits, 1 -> Gen.const('_'))
+  val idCharGen: Gen[Char] = frequency(19 -> scalaIDCharGen, 1 -> Gen.const('-'))
 
-  val lettersAndDigits: Gen[Char] = Gen.oneOf(allChars.filter(_.isLetterOrDigit))
-
-  val scalaIDCharGen: Gen[Char] = {
-    val others = Gen.const('_')
-    frequency(19 -> lettersAndDigits, 1 -> others)
-  }
-
-  val idCharGen: Gen[Char] = {
-    val others = Gen.const('-')
-    frequency(19 -> scalaIDCharGen, 1 -> others)
-  }
-
-  def isIDChar(c: Char) = {
-    c.isLetterOrDigit || "-_".toSeq.contains(c)
-  }
+  def isIDChar(c: Char) = c.isLetterOrDigit || "-_".toSeq.contains(c)
 
   val idGen: Gen[String] = idGen(upperLetters, idCharGen, _.isUpper)
-
   val lowerIDGen: Gen[String] = idGen(lowerLetters, idCharGen, _.isLower)
-
   val scalaIDGen: Gen[String] = idGen(upperLetters, scalaIDCharGen, _.isUpper)
 
   def idGen(start: Gen[Char], end: Gen[Char], headFilter: Char => Boolean): Gen[String] = {
@@ -316,13 +305,13 @@ abstract class TestBuild {
 
   implicit def envGen(implicit bGen: Gen[Build], tasks: Gen[Vector[Taskk]]): Gen[Env] =
     for (i <- MaxBuildsGen; bs <- containerOfN[Vector, Build](i, bGen); ts <- tasks)
-      yield new Env(bs, ts)
-  implicit def buildGen(implicit uGen: Gen[URI], pGen: URI => Gen[Seq[Proj]]): Gen[Build] =
-    for (u <- uGen; ps <- pGen(u)) yield new Build(u, ps)
+      yield Env(bs, ts)
 
-  def nGen[T](igen: Gen[Int])(implicit g: Gen[T]): Gen[Vector[T]] = igen flatMap { ig =>
-    containerOfN[Vector, T](ig, g)
-  }
+  implicit def buildGen(implicit uGen: Gen[URI], pGen: URI => Gen[Seq[Proj]]): Gen[Build] =
+    for (u <- uGen; ps <- pGen(u)) yield Build(u, ps)
+
+  def nGen[T](igen: Gen[Int])(implicit g: Gen[T]): Gen[Vector[T]] =
+    igen flatMap (ig => containerOfN[Vector, T](ig, g))
 
   implicit def genProjects(build: URI)(
       implicit genID: Gen[String],
@@ -386,8 +375,7 @@ abstract class TestBuild {
   def mapMake[A, T](key: T, deps: Vector[T], make: T => Gen[Vector[A] => A]): Gen[Inputs[A, T]] =
     make(key) map ((mk: Vector[A] => A) => (key, deps, mk))
 
-  @scala.annotation.tailrec
-  final def genAcyclic[T](
+  @tailrec def genAcyclic[T](
       maxDeps: Gen[Int],
       names: Vector[T],
       acc: Vector[Gen[(T, Vector[T])]]
