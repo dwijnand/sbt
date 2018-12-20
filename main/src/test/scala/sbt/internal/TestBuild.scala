@@ -332,9 +332,7 @@ abstract class TestBuild {
   ): Gen[Seq[Proj]] =
     genAcyclic(maxDeps, genID, count) { (id: String) =>
       for (cs <- confs) yield { (deps: Seq[Proj]) =>
-        new Proj(id, deps.map { dep =>
-          ProjectRef(build, dep.id)
-        }, cs)
+        Proj(id, deps.map(dep => ProjectRef(build, dep.id)), cs)
       }
     }
 
@@ -344,10 +342,7 @@ abstract class TestBuild {
       count: Gen[Int]
   ): Gen[Vector[Configuration]] =
     genAcyclicDirect[Configuration, String](maxDeps, genName, count)(
-      (key, deps) =>
-        Configuration
-          .of(key.capitalize, key)
-          .withExtendsConfigs(deps.toVector)
+      (key, deps) => Configuration.of(key.capitalize, key).withExtendsConfigs(deps)
     )
 
   def genTasks(
@@ -356,7 +351,7 @@ abstract class TestBuild {
       count: Gen[Int]
   ): Gen[Vector[Taskk]] =
     genAcyclicDirect[Taskk, String](maxDeps, genName, count)(
-      (key, deps) => new Taskk(AttributeKey[String](key), deps)
+      (key, deps) => Taskk(AttributeKey[String](key), deps)
     )
 
   def genAcyclicDirect[A, T](maxDeps: Gen[Int], keyGen: Gen[T], max: Gen[Int])(
@@ -364,7 +359,7 @@ abstract class TestBuild {
   ): Gen[Vector[A]] =
     genAcyclic[A, T](maxDeps, keyGen, max) { t =>
       Gen.const { deps =>
-        make(t, deps.toVector)
+        make(t, deps)
       }
     }
 
@@ -372,10 +367,10 @@ abstract class TestBuild {
       make: T => Gen[Vector[A] => A]
   ): Gen[Vector[A]] =
     max flatMap { count =>
-      containerOfN[Vector, T](count, keyGen) flatMap { keys =>
-        genAcyclic(maxDeps, keys.distinct)(make)
-      }
+      containerOfN[Vector, T](count, keyGen)
+        .flatMap(keys => genAcyclic(maxDeps, keys.distinct)(make))
     }
+
   def genAcyclic[A, T](maxDeps: Gen[Int], keys: Vector[T])(
       make: T => Gen[Vector[A] => A]
   ): Gen[Vector[A]] =
@@ -389,11 +384,10 @@ abstract class TestBuild {
     }
 
   def mapMake[A, T](key: T, deps: Vector[T], make: T => Gen[Vector[A] => A]): Gen[Inputs[A, T]] =
-    make(key) map { (mk: Vector[A] => A) =>
-      (key, deps, mk)
-    }
+    make(key) map ((mk: Vector[A] => A) => (key, deps, mk))
 
-  def genAcyclic[T](
+  @scala.annotation.tailrec
+  final def genAcyclic[T](
       maxDeps: Gen[Int],
       names: Vector[T],
       acc: Vector[Gen[(T, Vector[T])]]
@@ -405,10 +399,10 @@ abstract class TestBuild {
           yield (x, d.toVector)
         genAcyclic(maxDeps, xs.toVector, next +: acc)
     }
+
   def sequence[T](gs: Vector[Gen[T]]): Gen[Vector[T]] = Gen.parameterized { prms =>
-    delay(gs map { g =>
-      g(prms, seed) getOrElse sys.error("failed generator")
-    })
+    delay(gs map (g => g(prms, seed) getOrElse sys.error("failed generator")))
   }
+
   type Inputs[A, T] = (T, Vector[T], Vector[A] => A)
 }
