@@ -20,13 +20,52 @@ import sbt.internal.util.complete.{ DefaultParsers, Parser }
 import sbt.internal.{ Resolve, TestBuild }
 import sbt.librarymanagement.Configuration
 
+// https://gist.github.com/non/aeef5824b3f681b9cfc141437b16b014
+abstract class SeededProperties(name: String) extends Properties(name) { self =>
+
+  // this behaves similarly to scalacheck's `property(...) = ...` DSL
+  // but includes better support for seeds by default.
+  object Property {
+
+    // if no existing seeds are given we still want to display seeds
+    // for failing properties.
+    def update(pname: String, p: => Prop): Unit = {
+      val _ = self.propertyWithSeed(pname, None) = p
+      ()
+    }
+
+    // run the property as normal, but *also* run it for the given
+    // seed as extra test cases.
+    def update(pname: String, seed: String, p: => Prop): Unit = {
+      self.propertyWithSeed(pname, None) = p
+      val s = seed.substring(0, 4) + "..."
+      val _ = self.propertyWithSeed(s"$pname[$s]", Some(seed)) = p
+      ()
+    }
+
+    // run the property as normal, but *also* run it for the given
+    // seeds as extra test cases.
+    def update(pname: String, seeds: List[String], p: => Prop): Unit = {
+      self.propertyWithSeed(pname, None) = p
+      seeds.foreach { seed =>
+        val s = seed.substring(0, 4) + "..."
+        self.propertyWithSeed(s"$pname[$s]", Some(seed)) = p
+      }
+    }
+  }
+
+  object propOff {
+    def update(@deprecated("unused", "") s: String, @deprecated("unused", "") p: => Prop): Unit = ()
+  }
+}
+
 /**
  * Tests that the scoped key parser in Act can correctly parse a ScopedKey converted by Def.show*Key.
  * This includes properly resolving omitted components.
  */
-object ParseKey extends Properties("Key parser test") {
-  propertyWithSeed("An explicitly specified axis is always parsed to that explicit value", None) =
-    forAll { (skm: StructureKeyMask) =>
+object ParseKey extends SeededProperties("Key parser test") {
+  propOff("An explicitly specified axis is always parsed to that explicit value") = forAll {
+    (skm: StructureKeyMask) =>
       import skm.{ structure, key }
       val hasZeroConfig = key.scope.config == Zero
       val mask = if (hasZeroConfig) skm.mask.copy(project = true) else skm.mask
@@ -40,9 +79,9 @@ object ParseKey extends Properties("Key parser test") {
             :| s"$sk.key == $expected.key: ${sk.key == expected.key}"
             :| s"${sk.scope} == ${expected.scope}: ${Scope.equal(sk.scope, expected.scope, mask)}"
       ) :| s"Expected: ${displayFull(expected)}"
-    }
+  }
 
-  propertyWithSeed("An unspecified project axis resolves to the current project", None) = forAll {
+  propOff("An unspecified project axis resolves to the current project") = forAll {
     (skm: StructureKeyMask) =>
       import skm.{ structure, key }
       val mask = skm.mask.copy(project = false)
@@ -55,16 +94,15 @@ object ParseKey extends Properties("Key parser test") {
       )
   }
 
-  propertyWithSeed("An unspecified task axis resolves to Zero", None) = forAll {
-    (skm: StructureKeyMask) =>
-      import skm.{ structure, key }
-      val mask = skm.mask.copy(task = false)
-      parseCheck(structure, key, mask)(_.scope.task == Zero)
+  propOff("An unspecified task axis resolves to Zero") = forAll { (skm: StructureKeyMask) =>
+    import skm.{ structure, key }
+    val mask = skm.mask.copy(task = false)
+    parseCheck(structure, key, mask)(_.scope.task == Zero)
   }
 
-  propertyWithSeed(
+  Property(
     "An unspecified conf axis resolves to the 1st conf directly defining the key or Zero",
-    None
+    "YLDz1KdrOrBnzhrJrPceY0XGEznMtZtl5-EBaK5taxC=",
   ) = forAll { (skm: StructureKeyMask) =>
     import skm.{ structure, key }
     val mask = ScopeMask(config = false)
