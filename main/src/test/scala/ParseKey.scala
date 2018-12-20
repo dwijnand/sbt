@@ -61,16 +61,15 @@ object ParseKey extends Properties("Key parser test") {
     parseCheck(structure, key, mask)(_.scope.task == Zero)
   }
 
-  property(
-    "An unspecified configuration axis resolves to the first configuration directly defining the key or else Zero"
-  ) = forAll { (skm: StructureKeyMask) =>
-    import skm.{ structure, key }
-    val mask = ScopeMask(config = false)
-    val resolvedConfig = Resolve.resolveConfig(structure.extra, key.key, mask)(key.scope).config
-    parseCheck(structure, key, mask)(
-      sk => (sk.scope.config == resolvedConfig) || (sk.scope == Scope.GlobalScope)
-    ) :| s"Expected configuration: ${resolvedConfig map (_.name)}"
-  }
+  property("An unspecified conf axis resolves to the 1st conf directly defining the key or Zero") =
+    forAll { (skm: StructureKeyMask) =>
+      import skm.{ structure, key }
+      val mask = ScopeMask(config = false)
+      val resolvedConfig = Resolve.resolveConfig(structure.extra, key.key, mask)(key.scope).config
+      parseCheck(structure, key, mask)(
+        sk => (sk.scope.config == resolvedConfig) || (sk.scope == Scope.GlobalScope)
+      ) :| s"Expected configuration: ${resolvedConfig map (_.name)}"
+    }
 
   implicit val arbStructure: Arbitrary[Structure] = Arbitrary {
     for {
@@ -337,13 +336,9 @@ object ParseKey extends Properties("Key parser test") {
     Shrink.shrinkContainer[List, Char].shrink(s.toList).map(_.mkString)
   }
 
-  def shrinkID(id: String): Stream[String] = {
-    Shrink.shrink(id).filter(DefaultParsers.validID)
-  }
+  def shrinkID(id: String): Stream[String] = Shrink.shrink(id).filter(DefaultParsers.validID)
 
-  def shrinkTasks(tasks: Vector[Taskk]): Stream[Vector[Taskk]] = {
-    Shrink.shrink(tasks)
-  }
+  def shrinkTasks(tasks: Vector[Taskk]): Stream[Vector[Taskk]] = Shrink.shrink(tasks)
 
   implicit val shrinkTask: Shrink[Taskk] = Shrink { task =>
     Shrink.shrink((task.delegates, task.key)).map {
