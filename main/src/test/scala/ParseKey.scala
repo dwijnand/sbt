@@ -73,6 +73,40 @@ object ParseKey extends SeededProperties("Key parser test") {
     roundtrip(_)
   )
 
+  property("foo / bar") = fooBar
+
+  def fooBar = {
+    val fooProj = ProjectRef(new URI("file://tmp#"), "foo")
+
+    val Test = ConfigKey("Test")
+
+    val foo = Taskk(AttributeKey[String]("foo"), Nil)
+    val bar = Taskk(AttributeKey[String]("bar"), Nil)
+
+    val scope = Scope(Select(fooProj), Select(Test), Select(foo.key), Zero)
+    val key = ScopedKey(scope, bar.key)
+
+    val mask = ScopeMask(project = false, config = false, task = true, false)
+
+    // the original key is foo / Test / foo / bar
+    // that is the "bar" task, scoped to:
+    // * the "foo" project,
+    // * the "Test" configuration, and
+    // * the "foo" task
+
+    // with a ScopeMask accepting only the task axis
+    // that prints as "foo / bar"
+    // which is then parsed as "the bar task in the foo project"
+
+    val proj = Proj(fooProj.project, Nil, Seq(Configuration.of(Test.name, Test.name)))
+    val env = Env(Vector(Build(fooProj.build, Seq(proj))), Vector(foo, bar))
+    val settings = structureSettings(Seq(scope), env)
+    val structure = TestBuild.structure(env, settings, fooProj)
+    val skm = StructureKeyMask(structure, key, mask)
+
+    roundtrip(skm)
+  }
+
   def roundtrip(skm: StructureKeyMask): Prop = {
     import skm.{ structure, key }
     val hasZeroConfig = key.scope.config == Zero
