@@ -108,7 +108,7 @@ object ParseKey extends SeededProperties("Key parser test") {
     parseCheck(structure, key, mask)(_.scope.task == Zero)
   }
 
-  Property(
+  propOff(
     "An unspecified conf axis resolves to the 1st conf directly defining the key or Zero",
     List(
       "YLDz1KdrOrBnzhrJrPceY0XGEznMtZtl5-EBaK5taxC=",
