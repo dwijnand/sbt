@@ -57,7 +57,8 @@ abstract class SeededProperties(name: String) extends Properties(name) { self =>
   }
 
   object propOff {
-    def update(@deprecated("unused", "") s: String, @deprecated("unused", "") p: => Prop): Unit = ()
+    def update(@unused propName: String, @unused p: => Prop): Unit = ()
+    def update(@unused propName: String, @unused seeds: List[String], @unused p: => Prop): Unit = ()
   }
 }
 
