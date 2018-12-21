@@ -209,6 +209,7 @@ object TestBuild {
     val confMap = mapBy(configurations)(_.name)
   }
 
+  // Pseudo TaskKey
   case class Taskk(key: AttributeKey[String], delegates: Seq[Taskk]) {
     override def toString =
       key.label + smashFold(" (delegates: ", delegates.map(_.key.label).mkString(", "), ")")
