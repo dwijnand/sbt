@@ -62,6 +62,8 @@ abstract class SeededProperties(name: String) extends Properties(name) { self =>
   }
 }
 
+final class Shen[A](val gen: Gen[A], val shrink: Shrink[A])
+
 /**
  * Tests that the scoped key parser in Act can correctly parse a ScopedKey converted by Def.show*Key.
  * This includes properly resolving omitted components.
