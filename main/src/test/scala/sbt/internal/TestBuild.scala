@@ -260,12 +260,9 @@ object TestBuild {
     val keys = data.allKeys((s, key) => ScopedKey(s, key))
     val keyMap = keys.map(k => (k.key.label, k.key)).toMap[String, AttributeKey[_]]
     val projectsMap = env.builds.map(b => (b.uri, b.projects.map(_.id).toSet)).toMap
-    val confs = for {
-      b <- env.builds
-      p <- b.projects
-    } yield p.id -> p.configurations
-    val confMap = confs.toMap
-    Structure(env, current, data, KeyIndex(keys, projectsMap, confMap), keyMap)
+    val projs = for (b <- env.builds; p <- b.projects) yield p
+    val confs = projs.map(p => p.id -> p.configurations).toMap
+    Structure(env, current, data, KeyIndex(keys, projectsMap, confs), keyMap)
   }
 
   implicit lazy val mkEnv: Gen[Env] = {
