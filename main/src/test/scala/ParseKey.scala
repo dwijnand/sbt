@@ -20,6 +20,8 @@ import sbt.internal.util.complete.{ DefaultParsers, Parser }
 import sbt.internal.{ Resolve, TestBuild }
 import sbt.librarymanagement.Configuration
 
+final class unused extends deprecated("unused", "")
+
 // https://gist.github.com/non/aeef5824b3f681b9cfc141437b16b014
 abstract class SeededProperties(name: String) extends Properties(name) { self =>
 
