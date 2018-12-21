@@ -252,16 +252,10 @@ object TestBuild {
   }
 
   def structure(env: Env, settings: Seq[Setting[_]], current: ProjectRef): Structure = {
+    if (settings.isEmpty)
+      try sys.error("settings is empty")
+      catch { case e: Throwable => e.printStackTrace(); throw e }
     implicit val display = Def.showRelativeKey2(current)
-    if (settings.isEmpty) {
-      try {
-        sys.error("settings is empty")
-      } catch {
-        case e: Throwable =>
-          e.printStackTrace
-          throw e
-      }
-    }
     val data = Def.make(settings)(env.delegates, const(Nil), display)
     val keys = data.allKeys((s, key) => ScopedKey(s, key))
     val keyMap = keys.map(k => (k.key.label, k.key)).toMap[String, AttributeKey[_]]
