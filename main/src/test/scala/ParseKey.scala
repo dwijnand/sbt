@@ -64,21 +64,24 @@ abstract class SeededProperties(name: String) extends Properties(name) { self =>
  * This includes properly resolving omitted components.
  */
 object ParseKey extends SeededProperties("Key parser test") {
-  propOff("An explicitly specified axis is always parsed to that explicit value") = forAll {
-    (skm: StructureKeyMask) =>
-      import skm.{ structure, key }
-      val hasZeroConfig = key.scope.config == Zero
-      val mask = if (hasZeroConfig) skm.mask.copy(project = true) else skm.mask
-      // Note that this explicitly displays the configuration axis set to Zero.
-      // This is to disambiguate `proj/Zero/name`, which could render potentially
-      // as `Zero/name`, but could be interpreted as `Zero/Zero/name`.
-      val expected = resolve(structure, key, mask)
-      parseCheck(structure, key, mask, hasZeroConfig)(
-        sk =>
-          Project.equal(sk, expected, mask)
-            :| s"${sk.key} == ${expected.key}: ${sk.key == expected.key}"
-            :| s"${sk.scope} == ${expected.scope}: ${Scope.equal(sk.scope, expected.scope, mask)}"
-      ) :| s"Expected: ${displayFull(expected)}"
+  propOff("An explicitly specified axis is always parsed to that explicit value") = forAll(
+    roundtrip(_)
+  )
+
+  def roundtrip(skm: StructureKeyMask): Prop = {
+    import skm.{ structure, key }
+    val hasZeroConfig = key.scope.config == Zero
+    val mask = if (hasZeroConfig) skm.mask.copy(project = true) else skm.mask
+    // Note that this explicitly displays the configuration axis set to Zero.
+    // This is to disambiguate `proj/Zero/name`, which could render potentially
+    // as `Zero/name`, but could be interpreted as `Zero/Zero/name`.
+    val expected = resolve(structure, key, mask)
+    parseCheck(structure, key, mask, hasZeroConfig)(
+      sk =>
+        Project.equal(sk, expected, mask)
+          :| s"${sk.key} == ${expected.key}: ${sk.key == expected.key}"
+          :| s"${sk.scope} == ${expected.scope}: ${Scope.equal(sk.scope, expected.scope, mask)}"
+    ) :| s"Expected: ${displayFull(expected)}"
   }
 
   propOff("An unspecified project axis resolves to the current project") = forAll {
