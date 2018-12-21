@@ -104,6 +104,7 @@ object ParseKey extends SeededProperties("Key parser test") {
     "An unspecified conf axis resolves to the 1st conf directly defining the key or Zero",
     List(
       "YLDz1KdrOrBnzhrJrPceY0XGEznMtZtl5-EBaK5taxC=",
+      "MU0TzUCmRiH0lRPVtY5QtmevgpnInogJ8rDDLj6skmP=",
       "bTqL0HwDJz_rbqyFW5jas_v6TKc3GBfd5yoqhyRwLtO=",
     ),
   ) = forAll { (skm: StructureKeyMask) =>
