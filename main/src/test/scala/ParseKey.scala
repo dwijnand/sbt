@@ -29,27 +29,27 @@ abstract class SeededProperties(name: String) extends Properties(name) { self =>
 
     // if no existing seeds are given we still want to display seeds
     // for failing properties.
-    def update(pname: String, p: => Prop): Unit = {
-      val _ = self.propertyWithSeed(pname, None) = p
+    def update(propName: String, p: => Prop): Unit = {
+      val _ = self.propertyWithSeed(propName, None) = p
       ()
     }
 
     // run the property as normal, but *also* run it for the given
     // seed as extra test cases.
-    def update(pname: String, seed: String, p: => Prop): Unit = {
-      self.propertyWithSeed(pname, None) = p
+    def update(propName: String, seed: String, p: => Prop): Unit = {
+      self.propertyWithSeed(propName, None) = p
       val s = seed.substring(0, 4) + "..."
-      val _ = self.propertyWithSeed(s"$pname[$s]", Some(seed)) = p
+      val _ = self.propertyWithSeed(s"$propName[$s]", Some(seed)) = p
       ()
     }
 
     // run the property as normal, but *also* run it for the given
     // seeds as extra test cases.
-    def update(pname: String, seeds: List[String], p: => Prop): Unit = {
-      self.propertyWithSeed(pname, None) = p
+    def update(propName: String, seeds: List[String], p: => Prop): Unit = {
+      self.propertyWithSeed(propName, None) = p
       seeds.foreach { seed =>
         val s = seed.substring(0, 4) + "..."
-        self.propertyWithSeed(s"$pname[$s]", Some(seed)) = p
+        self.propertyWithSeed(s"$propName[$s]", Some(seed)) = p
       }
     }
   }
