@@ -87,10 +87,9 @@ object ParseKey extends SeededProperties("Key parser test") {
       val mask = skm.mask.copy(project = false)
       // skip when config axis is set to Zero
       val hasZeroConfig = key.scope.config == Zero
-      parseCheck(structure, key, mask)(
-        sk =>
-          (hasZeroConfig || sk.scope.project == Select(structure.current))
-            :| s"Current: ${structure.current}"
+      parseCheck(structure, key, mask)(sk =>
+        (hasZeroConfig || sk.scope.project == Select(structure.current))
+          :| s"Current: ${structure.current}"
       )
   }
 
