@@ -184,7 +184,7 @@ object TestBuild {
   def toConfigKey: Configuration => ConfigKey = c => ConfigKey(c.name)
 
   case class Build(uri: URI, projects: Seq[Proj]) {
-    override def toString = "Build " + uri + " :\n    " + projects.mkString("\n    ")
+    override def toString = "BuildRef(" + uri + "):\n    " + projects.mkString("\n      ")
 
     val allProjects = projects map (p => (ProjectRef(uri, p.id), p))
     val root = projects.head
