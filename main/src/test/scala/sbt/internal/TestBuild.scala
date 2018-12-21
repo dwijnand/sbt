@@ -88,9 +88,7 @@ object TestBuild {
 
     lazy val allAttributeKeys: Set[AttributeKey[_]] = {
       val x = data.data.values.flatMap(_.keys).toSet
-      if (x.isEmpty) {
-        sys.error("allAttributeKeys is empty")
-      }
+      assert(x.nonEmpty, "allAttributeKeys is empty")
       x
     }
     lazy val (taskAxes, zeroTaskAxis, onlyTaskAxis, multiTaskAxis) = {
