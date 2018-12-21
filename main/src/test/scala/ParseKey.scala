@@ -118,8 +118,8 @@ object ParseKey extends SeededProperties("Key parser test") {
     parseCheck(structure, key, mask, hasZeroConfig)(
       sk =>
         Project.equal(sk, expected, mask)
-          :| s"${sk.key} == ${expected.key}: ${sk.key == expected.key}"
-          :| s"${sk.scope} == ${expected.scope}: ${Scope.equal(sk.scope, expected.scope, mask)}"
+          :| s"key: ${sk.key} == ${expected.key}: ${sk.key == expected.key}"
+          :| s"scope: ${sk.scope} == ${expected.scope}: ${Scope.equal(sk.scope, expected.scope, mask)}"
     ) :| s"Expected: ${displayFull(expected)}"
   }
 
