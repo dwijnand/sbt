@@ -245,8 +245,8 @@ sealed trait Project extends ProjectDefinition[ProjectReference] with CompositeP
   def configs(cs: Configuration*): Project = copy(configurations = configurations ++ cs)
 
   /** Adds classpath dependencies on internal or external projects. */
-  def dependsOn(deps: ClasspathDep[ProjectReference]*): Project =
-    copy(dependencies = dependencies ++ deps)
+  def dependsOn[P](deps: P*)(implicit ev: P => ClasspathDep[ProjectReference]): Project =
+    copy(dependencies = dependencies ++ deps.map(ev))
 
   /**
    * Adds projects to be aggregated.  When a user requests a task to run on this project from the command line,
