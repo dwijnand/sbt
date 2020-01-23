@@ -15,7 +15,7 @@ import sbt.BuildPaths._
 import sbt.Def.{ ScopeLocal, ScopedKey, Setting, isDummy }
 import sbt.Keys._
 import sbt.Project.inScope
-import sbt.Scope.GlobalScope
+import sbt.Scope.Global
 import sbt.compiler.Eval
 import sbt.internal.BuildStreams._
 import sbt.internal.inc.classpath.ClasspathUtilities
@@ -26,7 +26,7 @@ import sbt.internal.util.{ Attributed, Settings, ~> }
 import sbt.io.{ GlobFilter, IO, Path }
 import sbt.librarymanagement.ivy.{ InlineIvyConfiguration, IvyDependencyResolution, IvyPaths }
 import sbt.librarymanagement.{ Configuration, Configurations, Resolver }
-import sbt.nio.Settings
+import sbt.nio
 import sbt.util.{ Logger, Show }
 import xsbti.compile.{ ClasspathOptionsUtil, Compilers }
 
@@ -111,7 +111,7 @@ private[sbt] object Load {
       compilers,
       evalPluginDef,
       delegates,
-      s => EvaluateTask.injectStreams(s) ++ Settings.inject(s),
+      s => EvaluateTask.injectStreams(s) ++ nio.Settings.inject(s),
       pluginMgmt,
       inject,
       None,
@@ -128,7 +128,7 @@ private[sbt] object Load {
     }
 
   def injectGlobal(state: State): Seq[Setting[_]] =
-    (appConfiguration in GlobalScope :== state.configuration) +:
+    (appConfiguration in Global :== state.configuration) +:
       LogManager.settingsLogger(state) +:
       EvaluateTask.injectSettings
 
@@ -253,7 +253,7 @@ private[sbt] object Load {
     }
     val data = timed("Load.apply: Def.make(settings)...", log) {
       // When settings.size is 100000, Def.make takes around 10s.
-      if (settings.size > 10000) {
+      if (settings.lengthCompare(10000) > 0) {
         log.info(s"Resolving key references (${settings.size} settings) ...")
       }
       Def.make(settings)(delegates, config.scopeLocal, Project.showLoadingKey(loaded))
@@ -282,29 +282,27 @@ private[sbt] object Load {
   // 3. resolvedScoped is replaced with the defining key as a value
   // Note: this must be idempotent.
   def finalTransforms(ss: Seq[Setting[_]]): Seq[Setting[_]] = {
-    def mapSpecial(to: ScopedKey[_]) = λ[ScopedKey ~> ScopedKey](
-      (key: ScopedKey[_]) =>
-        if (key.key == streams.key) {
-          ScopedKey(Scope.fillTaskAxis(Scope.replaceThis(to.scope)(key.scope), to.key), key.key)
-        } else key
+    def mapSpecial(to: ScopedKey[_]) = λ[ScopedKey ~> ScopedKey]((key: ScopedKey[_]) =>
+      if (key.key == streams.key) {
+        ScopedKey(Scope.fillTaskAxis(Scope.replaceThis(to.scope)(key.scope), to.key), key.key)
+      } else key
     )
-    def setDefining[T] =
-      (key: ScopedKey[T], value: T) =>
-        value match {
-          case tk: Task[t]      => setDefinitionKey(tk, key).asInstanceOf[T]
-          case ik: InputTask[t] => ik.mapTask(tk => setDefinitionKey(tk, key)).asInstanceOf[T]
-          case _                => value
-        }
-    def setResolved(defining: ScopedKey[_]) = λ[ScopedKey ~> Option](
-      (key: ScopedKey[_]) =>
-        key.key match {
-          case resolvedScoped.key => Some(defining.asInstanceOf[A1$])
-          case _                  => None
-        }
+
+    def setDefining[T] = (key: ScopedKey[T], value: T) =>
+      value match {
+        case tk: Task[t]      => setDefinitionKey(tk, key).asInstanceOf[T]
+        case ik: InputTask[t] => ik.mapTask(tk => setDefinitionKey(tk, key)).asInstanceOf[T]
+        case _                => value
+      }
+
+    def setResolved(defining: ScopedKey[_]) = λ[ScopedKey ~> Option]((key: ScopedKey[_]) =>
+      key.key match {
+        case resolvedScoped.key => Some(defining.asInstanceOf[A1$])
+        case _                  => None
+      }
     )
-    ss.map(
-      s => s mapConstant setResolved(s.key) mapReferenced mapSpecial(s.key) mapInit setDefining
-    )
+
+    ss.map(s => s.mapConstant(setResolved(s.key)).mapReferenced(mapSpecial(s.key)).mapInit(setDefining))
   }
 
   def setDefinitionKey[T](tk: Task[T], key: ScopedKey[_]): Task[T] =
@@ -368,30 +366,36 @@ private[sbt] object Load {
       rootProject: URI => String,
       injectSettings: InjectSettings
   ): Seq[Setting[_]] = {
-    ((loadedBuild in GlobalScope :== loaded) +:
-      transformProjectOnly(loaded.root, rootProject, injectSettings.global)) ++
-      inScope(GlobalScope)(loaded.autos.globalSettings) ++
-      loaded.units.toSeq.flatMap {
-        case (uri, build) =>
-          val pluginBuildSettings = loaded.autos.buildSettings(uri)
-          val projectSettings = build.defined flatMap {
-            case (id, project) =>
-              val ref = ProjectRef(uri, id)
-              val defineConfig: Seq[Setting[_]] =
-                for (c <- project.configurations)
-                  yield ((configuration in (ref, ConfigKey(c.name))) :== c)
-              val builtin: Seq[Setting[_]] =
-                (thisProject :== project) +: (thisProjectRef :== ref) +: defineConfig
-              val settings = builtin ++ project.settings ++ injectSettings.project
-              // map This to thisScope, Select(p) to mapRef(uri, rootProject, p)
-              transformSettings(projectScope(ref), uri, rootProject, settings)
-          }
-          val buildScope = Scope(Select(BuildRef(uri)), Zero, Zero, Zero)
-          val buildBase = baseDirectory :== build.localBase
-          val settings3 = pluginBuildSettings ++ (buildBase +: build.buildSettings)
-          val buildSettings = transformSettings(buildScope, uri, rootProject, settings3)
-          buildSettings ++ projectSettings
-      }
+    import sbt.SlashSyntax0._
+
+    def in(ref: ResolvedReference) =
+      ss => transformSettings(Global in ref, Reference.buildURI(ref), rootProject)
+
+    val globalSettings = Def.settings(
+      Global / loadedBuild :== loaded,
+      transformProjectOnly(loaded.root, rootProject, injectSettings.global),
+      inScope(Global)(loaded.autos.globalSettings),
+    )
+
+    val buildSettings = loaded.units.toSeq.flatMap { case (buildUri, buildUnit) =>
+      in(BuildRef(buildUri))(Def.settings(
+        loaded.autos.buildSettings(buildUri),
+        baseDirectory :== buildUnit.localBase,
+        buildUnit.buildSettings,
+      ))
+    }
+
+    val projectSettings = loaded.allProjectRefs.flatMap { case (projectRef, project) =>
+      in(projectRef)(Def.settings(
+        thisProject :== project,
+        thisProjectRef :== projectRef,
+        project.configurations.map(c => projectRef / c / configuration :== c),
+        project.settings,
+        injectSettings.project,
+      ))
+    }
+
+    globalSettings ++ buildSettings ++ projectSettings
   }
 
   def transformProjectOnly(
@@ -407,11 +411,10 @@ private[sbt] object Load {
       rootProject: URI => String,
       settings: Seq[Setting[_]]
   ): Seq[Setting[_]] = {
-    val transformed = Project.transform(Scope.resolveScope(thisScope, uri, rootProject), settings)
-    Settings.inject(transformed)
+    nio.Settings.inject(Project.transform(Scope.resolveScope(thisScope, uri, rootProject), settings))
   }
 
-  def projectScope(project: Reference): Scope = Scope(Select(project), Zero, Zero, Zero)
+  def projectScope(project: Reference): Scope = Global in project
 
   def lazyEval(unit: BuildUnit): () => Eval = {
     lazy val eval = mkEval(unit)
@@ -526,7 +529,7 @@ private[sbt] object Load {
   }
 
   def buildSettings(unit: BuildUnit): Seq[Setting[_]] = {
-    val buildScope = GlobalScope.copy(project = Select(BuildRef(unit.uri)))
+    val buildScope = Global in BuildRef(unit.uri)
     val resolve = Scope.resolveBuildScope(buildScope, unit.uri)
     Project.transform(resolve, unit.definitions.builds.flatMap(_.settings))
   }
@@ -1147,7 +1150,7 @@ private[sbt] object Load {
     }
 
   /** These are the settings defined when loading a project "meta" build. */
-  val autoPluginSettings: Seq[Setting[_]] = inScope(GlobalScope in LocalRootProject)(
+  val autoPluginSettings: Seq[Setting[_]] = inScope(Global in LocalRootProject)(
     Seq(
       sbtPlugin :== true,
       isMetaBuild :== true,

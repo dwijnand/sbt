@@ -8,11 +8,11 @@
 package sbt
 
 import sbt.internal.{ Load, BuildStructure, Act, Aggregation, SessionSettings }
-import Scope.GlobalScope
-import Def.{ ScopedKey, Setting }
 import sbt.internal.util.complete.Parser
 import sbt.internal.util.AttributeKey
 import sbt.util.Show
+import sbt.Def.{ ScopedKey, Setting }
+import sbt.Scope.Global
 import std.Transform.DummyTaskMap
 import sbt.EvaluateTask.extractedTaskConfig
 
@@ -73,11 +73,11 @@ final case class Extracted(
    * This method requests execution of only the given task and does not aggregate execution.
    */
   def runInputTask[T](key: InputKey[T], input: String, state: State): (State, T) = {
-    val key2 = Scoped.scopedSetting(
-      Scope.resolveScope(Load.projectScope(currentRef), currentRef.build, rootProject)(key.scope),
+    val skey = Scoped.scopedSetting(
+      Scope.resolveScope(Global in currentRef, currentRef.build, rootProject)(key.scope),
       key.key
     )
-    val rkey = resolve(key2)
+    val rkey = resolve(skey)
     val inputTask = get(rkey)
     val task = Parser.parse(input, inputTask.parser(state)) match {
       case Right(t)  => t
@@ -111,7 +111,7 @@ final case class Extracted(
   }
 
   private[this] def resolve[K <: Scoped.ScopingSetting[K] with Scoped](key: K): K =
-    key in Scope.resolveScope(GlobalScope, currentRef.build, rootProject)(key.scope)
+    key in Scope.resolveScope(Global, currentRef.build, rootProject)(key.scope)
 
   private def getOrError[T](scope: Scope, key: AttributeKey[_], value: Option[T])(
       implicit display: Show[ScopedKey[_]]
@@ -146,9 +146,9 @@ final case class Extracted(
       state: State,
       sessionSettings: Seq[Setting[_]],
   ): State = {
-    val appendSettings =
-      Load.transformSettings(Load.projectScope(currentRef), currentRef.build, rootProject, settings)
-    val newStructure = Load.reapply(sessionSettings ++ appendSettings, structure)
+    val currentScope = Global in currentRef
+    val newSettings = Load.transformSettings(currentScope, currentRef.build, rootProject, settings)
+    val newStructure = Load.reapply(sessionSettings ++ newSettings, structure)
     Project.setProject(session, newStructure, state)
   }
 }

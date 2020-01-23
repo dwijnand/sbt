@@ -340,10 +340,7 @@ object Project extends ProjectExtra {
       loaded: LoadedBuild,
       keyNameColor: Option[String] = None
   ): Show[ScopedKey[_]] =
-    Def.showRelativeKey2(
-      ProjectRef(loaded.root, loaded.units(loaded.root).rootProjects.head),
-      keyNameColor
-    )
+    Def.showRelativeKey2(ProjectRef(loaded.root, loaded.units(loaded.root).root), keyNameColor)
 
   /** This is a variation of def apply that mixes in GeneratedRootProject. */
   private[sbt] def mkGeneratedRoot(
