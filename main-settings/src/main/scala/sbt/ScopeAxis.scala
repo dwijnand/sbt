@@ -11,14 +11,18 @@ import sbt.internal.util.Util._
 
 sealed trait ScopeAxis[+S] {
   def foldStrict[T](f: S => T, ifZero: T, ifThis: T): T = fold(f, ifZero, ifThis)
+
   def fold[T](f: S => T, ifZero: => T, ifThis: => T): T = this match {
     case This      => ifThis
     case Zero      => ifZero
     case Select(s) => f(s)
   }
+
   def toOption: Option[S] = foldStrict(Option(_), none, none)
+
   def map[T](f: S => T): ScopeAxis[T] =
     foldStrict(s => Select(f(s)): ScopeAxis[T], Zero: ScopeAxis[T], This: ScopeAxis[T])
+
   def isSelect: Boolean = false
 }
 
@@ -43,6 +47,7 @@ case object Zero extends ScopeAxis[Nothing]
 final case class Select[S](s: S) extends ScopeAxis[S] {
   override def isSelect = true
 }
+
 object ScopeAxis {
   def fromOption[T](o: Option[T]): ScopeAxis[T] = o match {
     case Some(v) => Select(v)

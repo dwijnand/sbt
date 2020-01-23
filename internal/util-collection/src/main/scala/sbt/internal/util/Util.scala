@@ -58,7 +58,7 @@ object Util {
 
   def nil[A]: List[A] = List.empty[A]
   def nilSeq[A]: Seq[A] = Seq.empty[A]
-  def none[A]: Option[A] = (None: Option[A])
+  def none[A]: Option[A] = Option.empty[A]
 
   implicit class AnyOps[A](private val value: A) extends AnyVal {
     def some: Option[A] = (Some(value): Option[A])

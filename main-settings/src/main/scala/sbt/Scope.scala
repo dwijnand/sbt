@@ -28,9 +28,8 @@ final case class Scope(
     copy(project = Select(project), task = Select(task))
   def in(project: Reference, config: ConfigKey, task: AttributeKey[_]): Scope =
     copy(project = Select(project), config = Select(config), task = Select(task))
-  def in(project: Reference): Scope = copy(project = Select(project))
-  def in(config: ConfigKey): Scope = copy(config = Select(config))
-  def in(task: AttributeKey[_]): Scope = copy(task = Select(task))
+
+  def in[A](x: A)(implicit z: Scoper[A]) = z.scope(this, x)
 
   override def toString: String = this match {
     case Scope(Zero, Zero, Zero, Zero) => "Global"
@@ -38,6 +37,7 @@ final case class Scope(
     case _                             => s"Scope($project, $config, $task, $extra)"
   }
 }
+
 object Scope {
   val ThisScope: Scope = Scope(This, This, This, This)
   val Global: Scope = Scope(Zero, Zero, Zero, Zero)
@@ -50,20 +50,21 @@ object Scope {
     buildResolve(current) compose replaceThis(thisScope) compose subThisProject
 
   def replaceThis(thisScope: Scope): Scope => Scope =
-    (scope: Scope) =>
+    scope =>
       Scope(
         subThis(thisScope.project, scope.project),
         subThis(thisScope.config, scope.config),
         subThis(thisScope.task, scope.task),
-        subThis(thisScope.extra, scope.extra)
+        subThis(thisScope.extra, scope.extra),
       )
 
   def subThis[T](sub: ScopeAxis[T], into: ScopeAxis[T]): ScopeAxis[T] =
     if (into == This) sub else into
 
   /**
-   * `Select(ThisProject)` cannot be resolved by [[resolveProject]] (it doesn't know what to replace it with), so we
-   * perform this transformation so that [[replaceThis]] picks it up.
+   * `Select(ThisProject)` cannot be resolved by [[resolveProject]]
+   * (it doesn't know what to replace it with),
+   * so we perform this transformation so that [[replaceThis]] picks it up.
    */
   def subThisProject: Scope => Scope = {
     case s @ Scope(Select(ThisProject), _, _, _) => s.copy(project = This)
@@ -80,8 +81,10 @@ object Scope {
     case Scope(Select(ref), a, b, c) => Scope(Select(f(ref)), a, b, c)
     case x                           => x
   }
+
   def resolveProject(uri: URI, rootProject: URI => String): Scope => Scope =
     mapReference(ref => resolveReference(uri, rootProject, ref))
+
   def buildResolve(uri: URI): Scope => Scope =
     mapReference(ref => resolveBuildOnly(uri, ref))
 
@@ -90,11 +93,13 @@ object Scope {
       case br: BuildReference   => resolveBuild(current, br)
       case pr: ProjectReference => resolveProjectBuild(current, pr)
     }
+
   def resolveBuild(current: URI, ref: BuildReference): BuildReference =
     ref match {
       case ThisBuild     => BuildRef(current)
       case BuildRef(uri) => BuildRef(resolveBuild(current, uri))
     }
+
   def resolveProjectBuild(current: URI, ref: ProjectReference): ProjectReference =
     ref match {
       case LocalRootProject    => RootProject(current)
@@ -103,6 +108,7 @@ object Scope {
       case ProjectRef(uri, id) => ProjectRef(resolveBuild(current, uri), id)
       case ThisProject         => ThisProject // haven't exactly "resolved" anything..
     }
+
   def resolveBuild(current: URI, uri: URI): URI =
     if (!uri.isAbsolute && current.isOpaque && uri.getSchemeSpecificPart == ".")
       current // this handles the shortcut of referring to the current build using "."
@@ -131,6 +137,7 @@ object Scope {
       case ProjectRef(uri, id) => ProjectRef(resolveBuild(current, uri), id)
       case ThisProject         => sys.error("Cannot resolve ThisProject w/o the current project")
     }
+
   def resolveBuildRef(current: URI, ref: BuildReference): BuildRef =
     ref match {
       case ThisBuild     => BuildRef(current)
@@ -143,10 +150,10 @@ object Scope {
     Map(
       "it" -> "IntegrationTest",
       "scala-tool" -> "ScalaTool",
-      "plugin" -> "CompilerPlugin"
+      "plugin" -> "CompilerPlugin",
     )
-  private[sbt] val configIdentsInverse: Map[String, String] =
-    configIdents map { _.swap }
+
+  private[sbt] val configIdentsInverse: Map[String, String] = configIdents.map(_.swap)
 
   private[sbt] def guessConfigIdent(conf: String): String =
     configIdents.applyOrElse(conf, (x: String) => x.capitalize)
@@ -154,7 +161,7 @@ object Scope {
   private[sbt] def unguessConfigIdent(conf: String): String =
     configIdentsInverse.applyOrElse(conf, (x: String) => x.take(1).toLowerCase + x.drop(1))
 
-  def displayConfigKey012Style(config: ConfigKey): String = config.name + ":"
+  def displayConfigKey012Style(config: ConfigKey): String = s"${config.name}:"
 
   def display(scope: Scope, sep: String): String =
     displayMasked(scope, sep, showProject, ScopeMask())
@@ -213,24 +220,20 @@ object Scope {
     extra.toOption.flatMap(_.get(customShowString)).getOrElse {
       val zeroConfig = if (showZeroConfig) "Zero /" else ""
       val configPrefix = config.foldStrict(display, zeroConfig, "./")
-      val taskPrefix = task.foldStrict(_.label + " /", "", "./")
+      val taskPrefix = task.foldStrict(k => s"${k.label} /", "", "./")
       val extras = extra.foldStrict(_.entries.map(_.toString).toList, nil, nil)
       val postfix = if (extras.isEmpty) "" else extras.mkString("(", ", ", ")")
-      if (scope == GlobalScope) "Global / " + sep + postfix
-      else
-        mask.concatShow(
-          appendSpace(projectPrefix(project, showProject)),
-          appendSpace(configPrefix),
-          appendSpace(taskPrefix),
-          sep,
-          postfix
-        )
+      if (scope == GlobalScope) s"Global / $sep$postfix"
+      else {
+        val p = appendSpace(projectPrefix(project, showProject))
+        val c = appendSpace(configPrefix)
+        val t = appendSpace(taskPrefix)
+        mask.concatShow(p, c, t, sep, postfix)
+      }
     }
   }
 
-  private[sbt] def appendSpace(s: String): String =
-    if (s == "") ""
-    else s + " "
+  private[sbt] def appendSpace(s: String): String = if (s == "") "" else s + " "
 
   def equal(a: Scope, b: Scope, mask: ScopeMask): Boolean =
     (!mask.project || a.project == b.project) &&
@@ -371,12 +374,14 @@ object Scope {
   }
 
   private val zeroL = List(Zero)
+
   def withZeroAxis[T](base: ScopeAxis[T]): Seq[ScopeAxis[T]] =
     if (base.isSelect) List(base, Zero: ScopeAxis[T])
     else zeroL
 
   def withGlobalScope(base: Scope): Seq[Scope] =
     if (base == GlobalScope) GlobalScope :: Nil else base :: GlobalScope :: Nil
+
   def withRawBuilds(ps: Seq[ScopeAxis[ProjectRef]]): Seq[ScopeAxis[ResolvedReference]] =
     (ps: Seq[ScopeAxis[ResolvedReference]]) ++
       ((ps flatMap rawBuild).distinct: Seq[ScopeAxis[ResolvedReference]]) :+
@@ -392,22 +397,22 @@ object Scope {
       projectInherit: ProjectRef => Seq[ProjectRef],
       configInherit: (ResolvedReference, ConfigKey) => Seq[ConfigKey]
   ): DelegateIndex = {
-    val pDelegates = refs map {
+    val pDelegates = refs.map {
       case (ref, project) =>
         (ref, delegateIndex(ref, configurations(project))(projectInherit, configInherit))
-    } toMap;
+    }.toMap
     new DelegateIndex0(pDelegates)
   }
+
   private[this] def delegateIndex(ref: ProjectRef, confs: Seq[ConfigKey])(
       projectInherit: ProjectRef => Seq[ProjectRef],
       configInherit: (ResolvedReference, ConfigKey) => Seq[ConfigKey]
   ): ProjectDelegates = {
     val refDelegates = withRawBuilds(linearize(Select(ref), false)(projectInherit))
-    val configs = confs map { c =>
-      axisDelegates(configInherit, ref, c)
-    }
+    val configs = confs.map(c => axisDelegates(configInherit, ref, c))
     new ProjectDelegates(ref, refDelegates, configs.toMap)
   }
+
   def axisDelegates[T](
       direct: (ResolvedReference, T) => Seq[T],
       ref: ResolvedReference,
@@ -430,6 +435,7 @@ object Scope {
     if (appendZero) o ::: (Zero: ScopeAxis[T]) :: Nil
     else o
   }
+
   def globalProjectDelegates(scope: Scope): Seq[Scope] =
     if (scope == GlobalScope)
       GlobalScope :: Nil
