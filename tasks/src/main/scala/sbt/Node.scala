@@ -17,8 +17,8 @@ import sbt.internal.util.AList
  */
 trait Node[A[_], T] {
   type K[L[x]]
-  val in: K[A]
-  val alist: AList[K]
+  def in: K[A]
+  def alist: AList[K]
 
   /** Computes the result of this task given the results from the inputs. */
   def work(inputs: K[Result]): Either[A[T], T]

@@ -7,14 +7,16 @@
 
 package sbt
 
+import java.net.URI
+
 import sbt.internal.{ Load, LoadedBuildUnit }
-import sbt.internal.util.{ AttributeKey, Dag, Types }
+import sbt.internal.util.{ AttributeKey, Dag }
+import sbt.internal.util.Types.const
 
 import sbt.librarymanagement.{ Configuration, ConfigRef }
 
-import Types.const
-import Def.Initialize
-import java.net.URI
+import sbt.std.TaskExtra._
+import sbt.Def.Initialize
 
 object ScopeFilter {
   type ScopeFilter = Base[Scope]
@@ -59,26 +61,28 @@ object ScopeFilter {
   final class SettingKeyAll[T] private[sbt] (i: Initialize[T]) {
 
     /**
-     * Evaluates the initialization in all scopes selected by the filter.  These are dynamic dependencies, so
-     * static inspections will not show them.
+     * Evaluates the initialization in all scopes selected by the filter.
+     * These are dynamic dependencies, so static inspections will not show them.
      */
     def all(sfilter: => ScopeFilter): Initialize[Seq[T]] = Def.bind(getData) { data =>
       data.allScopes.toSeq.filter(sfilter(data)).map(s => Project.inScope(s, i)).join
     }
+
   }
   final class TaskKeyAll[T] private[sbt] (i: Initialize[Task[T]]) {
 
     /**
-     * Evaluates the task in all scopes selected by the filter.  These are dynamic dependencies, so
-     * static inspections will not show them.
+     * Evaluates the task in all scopes selected by the filter.
+     * These are dynamic dependencies, so static inspections will not show them.
      */
     def all(sfilter: => ScopeFilter): Initialize[Task[Seq[T]]] = Def.bind(getData) { data =>
-      import std.TaskExtra._
       data.allScopes.toSeq.filter(sfilter(data)).map(s => Project.inScope(s, i)).join(_.join)
     }
+
   }
 
   private[sbt] val Make = new Make {}
+
   trait Make {
 
     /** Selects the Scopes used in `<key>.all(<ScopeFilter>)`.*/

@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import sbt.internal.io.DeferredWriter
 import sbt.internal.util.ManagedLogger
-import sbt.internal.util.Util.{ nil }
+import sbt.internal.util.Util.nil
 import sbt.io.IO
 import sbt.io.syntax._
 import sbt.util._
@@ -74,8 +74,9 @@ sealed trait TaskStreams[Key] {
   /** Creates a Logger that logs to stream with ID `sid`.*/
   def log(sid: String): ManagedLogger
 
-  private[this] def getID(s: Option[String]) = s getOrElse default
+  private[this] def getID(s: Option[String]) = s.getOrElse(default)
 }
+
 sealed trait ManagedStreams[Key] extends TaskStreams[Key] {
   def open(): Unit
   def close(): Unit
@@ -84,40 +85,38 @@ sealed trait ManagedStreams[Key] extends TaskStreams[Key] {
 
 trait Streams[Key] {
   def apply(a: Key): ManagedStreams[Key]
+
   def use[T](key: Key)(f: TaskStreams[Key] => T): T = {
     val s = apply(key)
     s.open()
-    try {
-      f(s)
-    } finally {
-      s.close()
-    }
+    try f(s)
+    finally s.close()
   }
 }
-trait CloseableStreams[Key] extends Streams[Key] with java.io.Closeable
+
+trait CloseableStreams[Key] extends Streams[Key] with Closeable
+
 object Streams {
-  private[this] val closeQuietly = (c: Closeable) =>
-    try {
-      c.close()
-    } catch { case _: IOException => () }
   private[this] val streamLocks = new ConcurrentHashMap[File, AnyRef]()
+  private[this] val closeQuietly =
+    (c: Closeable) =>
+      try c.close()
+      catch { case _: IOException => () }
 
   def closeable[Key](delegate: Streams[Key]): CloseableStreams[Key] = new CloseableStreams[Key] {
-    private[this] val streams = new collection.mutable.HashMap[Key, ManagedStreams[Key]]
+    private[this] val streams = new scala.collection.mutable.HashMap[Key, ManagedStreams[Key]]
 
-    def apply(key: Key): ManagedStreams[Key] =
-      synchronized {
-        streams.get(key) match {
-          case Some(s) if !s.isClosed => s
-          case _ =>
-            val newS = delegate(key)
-            streams.put(key, newS)
-            newS
-        }
+    def apply(key: Key): ManagedStreams[Key] = synchronized {
+      streams.get(key) match {
+        case Some(s) if !s.isClosed => s
+        case _ =>
+          val newS = delegate(key)
+          streams.put(key, newS)
+          newS
       }
+    }
 
-    def close(): Unit =
-      synchronized { streams.values.foreach(_.close()); streams.clear() }
+    def close(): Unit = synchronized { streams.values.foreach(_.close()); streams.clear() }
   }
 
   def apply[Key, J: IsoString](
@@ -125,98 +124,87 @@ object Streams {
       name: Key => String,
       mkLogger: (Key, PrintWriter) => ManagedLogger,
       converter: SupportConverter[J]
-  ): Streams[Key] =
-    apply(
-      taskDirectory,
-      name,
-      mkLogger,
-      converter,
-      (file, s: SupportConverter[J]) => new DirectoryStoreFactory[J](file, s)
-    )
+  ): Streams[Key] = {
+    val mkFactory = new DirectoryStoreFactory[J](_, _)
+    apply(taskDirectory, name, mkLogger, converter, mkFactory)
+  }
+
   private[sbt] def apply[Key, J: IsoString](
       taskDirectory: Key => File,
       name: Key => String,
       mkLogger: (Key, PrintWriter) => ManagedLogger,
       converter: SupportConverter[J],
       mkFactory: (File, SupportConverter[J]) => CacheStoreFactory
-  ): Streams[Key] = new Streams[Key] {
+  ): Streams[Key] =
+    a =>
+      new ManagedStreams[Key] {
+        private[this] var opened: List[Closeable] = nil
+        private[this] var closed = false
 
-    def apply(a: Key): ManagedStreams[Key] = new ManagedStreams[Key] {
-      private[this] var opened: List[Closeable] = nil
-      private[this] var closed = false
+        def getInput(a: Key, sid: String = default): Input =
+          make(a, sid)(f => new PlainInput(new FileInputStream(f), converter))
 
-      def getInput(a: Key, sid: String = default): Input =
-        make(a, sid)(f => new PlainInput(new FileInputStream(f), converter))
+        def getOutput(sid: String = default): Output =
+          make(a, sid)(f => new PlainOutput(new FileOutputStream(f), converter))
 
-      def getOutput(sid: String = default): Output =
-        make(a, sid)(f => new PlainOutput(new FileOutputStream(f), converter))
+        def readText(a: Key, sid: String = default): BufferedReader =
+          make(a, sid) { f =>
+            new BufferedReader(new InputStreamReader(new FileInputStream(f), IO.defaultCharset))
+          }
 
-      def readText(a: Key, sid: String = default): BufferedReader =
-        make(a, sid)(
-          f => new BufferedReader(new InputStreamReader(new FileInputStream(f), IO.defaultCharset))
-        )
+        def readBinary(a: Key, sid: String = default): BufferedInputStream =
+          make(a, sid)(f => new BufferedInputStream(new FileInputStream(f)))
 
-      def readBinary(a: Key, sid: String = default): BufferedInputStream =
-        make(a, sid)(f => new BufferedInputStream(new FileInputStream(f)))
+        def text(sid: String = default): PrintWriter =
+          make(a, sid) { f =>
+            val writer = new OutputStreamWriter(new FileOutputStream(f), IO.defaultCharset)
+            new PrintWriter(new DeferredWriter(new BufferedWriter(writer)))
+          }
 
-      def text(sid: String = default): PrintWriter =
-        make(a, sid)(
-          f =>
-            new PrintWriter(
-              new DeferredWriter(
-                new BufferedWriter(
-                  new OutputStreamWriter(new FileOutputStream(f), IO.defaultCharset)
-                )
-              )
-            )
-        )
+        def binary(sid: String = default): BufferedOutputStream =
+          make(a, sid)(f => new BufferedOutputStream(new FileOutputStream(f)))
 
-      def binary(sid: String = default): BufferedOutputStream =
-        make(a, sid)(f => new BufferedOutputStream(new FileOutputStream(f)))
-
-      lazy val cacheDirectory: File = {
-        val dir = taskDirectory(a)
-        IO.createDirectory(dir)
-        dir
-      }
-
-      lazy val cacheStoreFactory: CacheStoreFactory = mkFactory(cacheDirectory, converter)
-
-      def log(sid: String): ManagedLogger = mkLogger(a, text(sid))
-
-      def make[T <: Closeable](a: Key, sid: String)(f: File => T): T = synchronized {
-        checkOpen()
-        val file = taskDirectory(a) / sid
-        val parent = file.getParentFile
-        val newLock = new AnyRef
-        val lock = streamLocks.putIfAbsent(parent, newLock) match {
-          case null => newLock
-          case l    => l
+        lazy val cacheDirectory: File = {
+          val dir = taskDirectory(a)
+          IO.createDirectory(dir)
+          dir
         }
-        try lock.synchronized {
-          if (!file.exists) IO.touch(file, setModified = false)
-        } finally {
-          streamLocks.remove(parent)
-          ()
-        }
-        val t = f(file)
-        opened ::= (t: Closeable)
-        t
-      }
 
-      def key: Key = a
-      def open(): Unit = ()
-      def isClosed: Boolean = synchronized { closed }
+        lazy val cacheStoreFactory: CacheStoreFactory = mkFactory(cacheDirectory, converter)
 
-      def close(): Unit = synchronized {
-        if (!closed) {
-          closed = true
-          opened foreach closeQuietly
+        def log(sid: String): ManagedLogger = mkLogger(a, text(sid))
+
+        def make[T <: Closeable](a: Key, sid: String)(f: File => T): T = synchronized {
+          checkOpen()
+          val file = taskDirectory(a) / sid
+          val parent = file.getParentFile
+          val newLock = new AnyRef
+          val lock = streamLocks.putIfAbsent(parent, newLock) match {
+            case null => newLock
+            case l    => l
+          }
+          try lock.synchronized(if (!file.exists) IO.touch(file, setModified = false))
+          finally {
+            streamLocks.remove(parent)
+            ()
+          }
+          val t = f(file)
+          opened ::= t
+          t
         }
+
+        def key: Key = a
+        def open(): Unit = ()
+        def isClosed: Boolean = synchronized(closed)
+
+        def close(): Unit = synchronized {
+          if (!closed) {
+            closed = true
+            opened foreach closeQuietly
+          }
+        }
+
+        def checkOpen(): Unit =
+          synchronized(if (closed) sys.error(s"Streams for '${name(a)}' have been closed."))
       }
-      def checkOpen(): Unit = synchronized {
-        if (closed) sys.error("Streams for '" + name(a) + "' have been closed.")
-      }
-    }
-  }
 }

@@ -9,25 +9,25 @@ package sbt
 package internal
 package parser
 
-import sbt.internal.util.{ LineRange, MessageOnlyException }
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
-import sbt.internal.parser.SbtParser._
+import scala.annotation.tailrec
 
 import scala.compat.Platform.EOL
+import scala.reflect.internal.Positions
 import scala.reflect.internal.util.{ BatchSourceFile, Position }
 import scala.reflect.io.VirtualDirectory
-import scala.reflect.internal.Positions
 import scala.tools.nsc.{ CompilerCommand, Global }
 import scala.tools.nsc.reporters.{ ConsoleReporter, Reporter, StoreReporter }
-import scala.util.Random
-import scala.util.{ Failure, Success }
+import scala.util.{ Failure, Random, Success, Try }
+
+import sbt.internal.parser.SbtParser._
+import sbt.internal.util.{ LineRange, MessageOnlyException }
 
 private[sbt] object SbtParser {
   val END_OF_LINE_CHAR = '\n'
   val END_OF_LINE = String.valueOf(END_OF_LINE_CHAR)
-  private[parser] val NOT_FOUND_INDEX = -1
   private[sbt] val FAKE_FILE = new File("fake")
   private[parser] val XML_ERROR = "';' expected but 'val' found."
 
@@ -151,12 +151,8 @@ private[sbt] object SbtParser {
     reporter.reset()
     val wrapperFile = new BatchSourceFile(reporterId, code)
     val unit = new CompilationUnit(wrapperFile)
-    val parser = SbtParser.synchronized { // see https://github.com/sbt/sbt/issues/4148
-      new syntaxAnalyzer.UnitParser(unit)
-    }
-    val parsedTrees = SbtParser.synchronized { // see https://github.com/scala/bug/issues/10605
-      parser.templateStats()
-    }
+    val parser = SbtParser.synchronized(new syntaxAnalyzer.UnitParser(unit)) // sbt/sbt#4148
+    val parsedTrees = SbtParser.synchronized(parser.templateStats()) // scala/bug#10605
     parser.accept(scala.tools.nsc.ast.parser.Tokens.EOF)
     globalReporter.throwParserErrorsIfAny(reporter, filePath)
     parsedTrees -> reporterId
@@ -185,7 +181,7 @@ sealed trait ParsedSbtFileExpressions {
   /** The set of parsed definitions and/or sbt build settings. */
   def settings: Seq[(String, LineRange)]
 
-  /** The set of scala tree's for parsed definitions/settings and the underlying string representation.. */
+  /** The set of scala tree's for parsed definitions/settings and the underlying string representation. */
   def settingsTrees: Seq[(String, Global#Tree)]
 
 }
@@ -210,41 +206,38 @@ sealed trait ParsedSbtFileExpressions {
  * @param lines The parsed "lines" of the file, where each string is a line.
  */
 private[sbt] case class SbtParser(file: File, lines: Seq[String]) extends ParsedSbtFileExpressions {
-  //settingsTrees,modifiedContent needed for "session save"
-  // TODO - We should look into splitting out "definitions" vs. "settings" here instead of further string lookups, since we have the
-  // parsed trees.
+  // settingsTrees, modifiedContent needed for "session save"
+  // TODO - We should look into splitting out "definitions" vs. "settings" here
+  //   instead of further string lookups, since we have the parsed trees
   val (imports, settings, settingsTrees) = splitExpressions(file, lines)
 
-  import SbtParser.defaultGlobalForParser._
+  import SbtParser.defaultGlobalForParser.{ Try => _, _ }
 
   private def splitExpressions(
       file: File,
       lines: Seq[String]
   ): (Seq[(String, Int)], Seq[(String, LineRange)], Seq[(String, Tree)]) = {
-    import sbt.internal.parser.MissingBracketHandler.findMissingText
 
     val indexedLines = lines.toIndexedSeq
     val content = indexedLines.mkString(END_OF_LINE)
     val fileName = file.getAbsolutePath
     val (parsedTrees, reporterId) = parse(content, fileName, None)
 
-    // Check No val (a,b) = foo *or* val a,b = foo as these are problematic to range positions and the WHOLE architecture.
-    def isBadValDef(t: Tree): Boolean =
-      t match {
-        case x @ ValDef(_, _, _, rhs) if rhs != EmptyTree =>
-          val c = content.substring(x.pos.start, x.pos.end)
-          !(c contains "=")
-        case _ => false
-      }
-    parsedTrees.filter(isBadValDef).foreach { badTree =>
-      // Issue errors
-      val positionLine = badTree.pos.line
-      throw new MessageOnlyException(
-        s"""[$fileName]:$positionLine: Pattern matching in val statements is not supported""".stripMargin
-      )
+    // Check no `val (a, b) = foo` *or* `val a, b = foo` as
+    // these are problematic to range positions and the WHOLE architecture
+    def isBadValDef(t: Tree): Boolean = t match {
+      case x @ ValDef(_, _, _, rhs) if rhs != EmptyTree =>
+        !content.substring(x.pos.start, x.pos.end).contains("=")
+      case _ => false
     }
 
-    val (imports: Seq[Tree], statements: Seq[Tree]) = parsedTrees partition {
+    parsedTrees.filter(isBadValDef).foreach { badTree =>
+      val line = badTree.pos.line
+      val msg = s"[$fileName]:$line: Pattern matching in val statements is not supported"
+      throw new MessageOnlyException(msg)
+    }
+
+    val (imports: Seq[Tree], statements: Seq[Tree]) = parsedTrees.partition {
       case _: Import => true
       case _         => false
     }
@@ -255,33 +248,30 @@ private[sbt] case class SbtParser(file: File, lines: Seq[String]) extends Parsed
      * @param originalStatement - original
      * @return originalStatement or originalStatement with missing bracket
      */
-    def parseStatementAgain(t: Tree, originalStatement: String): String = {
-      val statement = scala.util.Try(parse(originalStatement, fileName, Some(reporterId))) match {
+    def parseStatementAgain(t: Tree, originalStatement: String): String =
+      Try(parse(originalStatement, fileName, Some(reporterId))) match {
+        case Success(_) => originalStatement
         case Failure(th) =>
+          import MissingBracketHandler.findMissingText
           val missingText =
             findMissingText(content, t.pos.end, t.pos.line, fileName, th, Some(reporterId))
           originalStatement + missingText
-        case _ =>
-          originalStatement
       }
-      statement
+
+    def convertStatement(t: Tree): Option[(String, Tree, LineRange)] = t.pos match {
+      case NoPosition => None
+      case position =>
+        val originalStatement = content.substring(position.start, position.end)
+        val statement = parseStatementAgain(t, originalStatement)
+        val numberLines = countLines(statement)
+        Some((statement, t, LineRange(position.line - 1, position.line + numberLines)))
     }
 
-    def convertStatement(t: Tree): Option[(String, Tree, LineRange)] =
-      t.pos match {
-        case NoPosition =>
-          None
-        case position =>
-          val originalStatement = content.substring(position.start, position.end)
-          val statement = parseStatementAgain(t, originalStatement)
-          val numberLines = countLines(statement)
-          Some((statement, t, LineRange(position.line - 1, position.line + numberLines)))
-      }
     val stmtTreeLineRange = statements flatMap convertStatement
     val importsLineRange = importsToLineRanges(content, imports)
-    (importsLineRange, stmtTreeLineRange.map { case (stmt, _, lr) => (stmt, lr) }, stmtTreeLineRange.map {
-      case (stmt, tree, _)                                        => (stmt, tree)
-    })
+    val x = stmtTreeLineRange.map { case (stmt, _, lr)   => (stmt, lr) }
+    val y = stmtTreeLineRange.map { case (stmt, tree, _) => (stmt, tree) }
+    (importsLineRange, x, y)
   }
 
   /**
@@ -294,7 +284,7 @@ private[sbt] case class SbtParser(file: File, lines: Seq[String]) extends Parsed
       modifiedContent: String,
       imports: Seq[Tree]
   ): Seq[(String, Int)] = {
-    val toLineRange = imports map convertImport
+    val toLineRange = imports.map(convertImport)
     val groupedByLineNumber = toLineRange.groupBy { case (_, lineNumber) => lineNumber }
     val mergedImports = groupedByLineNumber.map {
       case (l, seq) => (l, extractLine(modifiedContent, seq))
@@ -331,22 +321,10 @@ private[sbt] case class SbtParser(file: File, lines: Seq[String]) extends Parsed
   private def countLines(statement: String) = statement.count(c => c == END_OF_LINE_CHAR)
 }
 
-/**
- * Scala parser cuts last bracket -
- * @see https://github.com/scala/scala/pull/3991
- */
+/** Scala's parser cuts the last bracket, see <https://github.com/scala/scala/pull/3991>. */
 private[sbt] object MissingBracketHandler {
 
-  /**
-   *
-   * @param content - parsed file
-   * @param positionEnd - from index
-   * @param positionLine - number of start position line
-   * @param fileName - file name
-   * @param originalException - original exception
-   * @return missing text
-   */
-  private[sbt] def findMissingText(
+  @tailrec private[sbt] def findMissingText(
       content: String,
       positionEnd: Int,
       positionLine: Int,
@@ -354,42 +332,19 @@ private[sbt] object MissingBracketHandler {
       originalException: Throwable,
       reporterId: Option[String] = Some(Random.nextInt.toString)
   ): String = {
-    findClosingBracketIndex(content, positionEnd) match {
-      case Some(index) =>
-        val text = content.substring(positionEnd, index + 1)
-        val textWithoutBracket = text.substring(0, text.length - 1)
-        scala.util.Try(SbtParser.parse(textWithoutBracket, fileName, reporterId)) match {
-          case Success(_) =>
-            text
-          case Failure(_) =>
-            findMissingText(
-              content,
-              index + 1,
-              positionLine,
-              fileName,
-              originalException,
-              reporterId
-            )
-        }
-      case _ =>
-        throw new MessageOnlyException(
-          s"""[$fileName]:$positionLine: ${originalException.getMessage}""".stripMargin
-        )
+    val index = content.indexWhere(c => c == '}' || c == ')', positionEnd) + 1
+    if (index == 0) {
+      val msg = originalException.getMessage
+      throw new MessageOnlyException(s"[$fileName]:$positionLine: $msg")
+    } else {
+      val text = content.substring(positionEnd, index)
+      val textWithoutBracket = text.substring(0, text.length - 1)
+      Try(SbtParser.parse(textWithoutBracket, fileName, reporterId)) match {
+        case Success(_) => text
+        case Failure(_) =>
+          findMissingText(content, index, positionLine, fileName, originalException, reporterId)
+      }
     }
   }
 
-  /**
-   *
-   * @param content - parsed file
-   * @param from - start index
-   * @return first not commented index or None
-   */
-  private[sbt] def findClosingBracketIndex(content: String, from: Int): Option[Int] = {
-    val index = content.indexWhere(c => c == '}' || c == ')', from)
-    if (index == NOT_FOUND_INDEX) {
-      None
-    } else {
-      Some(index)
-    }
-  }
 }

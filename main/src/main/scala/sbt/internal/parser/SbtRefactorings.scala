@@ -9,11 +9,10 @@ package sbt
 package internal
 package parser
 
+import sbt.internal.parser.SbtParser.{ END_OF_LINE, FAKE_FILE }
+import sbt.internal.SessionSettings.{ SessionSetting, SbtConfigFile }
+
 private[sbt] object SbtRefactorings {
-
-  import sbt.internal.parser.SbtParser.{ END_OF_LINE, FAKE_FILE }
-  import sbt.internal.SessionSettings.{ SessionSetting, SbtConfigFile }
-
   val emptyString = ""
   val reverseOrderingInt = Ordering[Int].reverse
 
@@ -31,13 +30,23 @@ private[sbt] object SbtRefactorings {
       commands: Seq[SessionSetting]
   ): SbtConfigFile = {
     val (file, lines) = configFile
-    val split = SbtParser(FAKE_FILE, lines)
-    val recordedCommands = recordCommands(commands, split)
-    val sortedRecordedCommands = recordedCommands.sortBy(_._1)(reverseOrderingInt)
-
-    val newContent = replaceFromBottomToTop(lines.mkString(END_OF_LINE), sortedRecordedCommands)
+    val recordedCommands =
+      recordCommands(commands, SbtParser(FAKE_FILE, lines)).sortBy(_._1)(reverseOrderingInt)
+    val newContent = replaceFromBottomToTop(lines.mkString(END_OF_LINE), recordedCommands)
     (file, newContent.linesIterator.toList)
   }
+
+  private def recordCommands(commands: Seq[SessionSetting], parser: SbtParser) =
+    for {
+      (_, command) <- commands
+      (name, _) <- toTreeStringMap(command)
+      replacements <- treesToReplacements(parser, name, command)
+    } yield replacements
+
+  private def toTreeStringMap(command: Seq[String]) =
+    SbtParser(FAKE_FILE, command).settingsTrees.map {
+      case (statement, tree) => (extractSettingName(tree), statement)
+    }.toMap
 
   private def replaceFromBottomToTop(
       modifiedContent: String,
@@ -46,55 +55,25 @@ private[sbt] object SbtRefactorings {
     sortedRecordedCommands.foldLeft(modifiedContent) {
       case (acc, (from, old, replacement)) =>
         val before = acc.substring(0, from)
-        val after = acc.substring(from + old.length, acc.length)
-        val afterLast = emptyStringForEmptyString(after)
-        before + replacement + afterLast
+        val after = blankToEmpty(acc.substring(from + old.length, acc.length))
+        before + replacement + after
     }
   }
 
-  private def emptyStringForEmptyString(text: String) = {
+  private def treesToReplacements(parser: SbtParser, name: String, command: Seq[String]) =
+    parser.settingsTrees.iterator
+      .filter { case (_, tree) => name == extractSettingName(tree) }
+      .foldLeft(Seq.empty[(Int, String, String)]) {
+        case (acc, (st, tree)) =>
+          val replacement = if (acc.nonEmpty) emptyString else command.mkString(END_OF_LINE)
+          (tree.pos.start, st, replacement) +: acc
+      }
+
+  private def extractSettingName(tree: scala.tools.nsc.Global#Tree): String =
+    tree.children.headOption.fold(tree.toString())(extractSettingName)
+
+  private def blankToEmpty(text: String) = {
     val trimmed = text.trim
     if (trimmed.isEmpty) trimmed else text
   }
-
-  private def recordCommands(commands: Seq[SessionSetting], split: SbtParser) =
-    commands.flatMap {
-      case (_, command) =>
-        val map = toTreeStringMap(command)
-        map.flatMap { case (name, _) => treesToReplacements(split, name, command) }
-    }
-
-  private def treesToReplacements(split: SbtParser, name: String, command: Seq[String]) =
-    split.settingsTrees.foldLeft(Seq.empty[(Int, String, String)]) {
-      case (acc, (st, tree)) =>
-        val treeName = extractSettingName(tree)
-        if (name == treeName) {
-          val replacement =
-            if (acc.isEmpty) command.mkString(END_OF_LINE)
-            else emptyString
-          (tree.pos.start, st, replacement) +: acc
-        } else {
-          acc
-        }
-    }
-
-  private def toTreeStringMap(command: Seq[String]) = {
-    val split = SbtParser(FAKE_FILE, command)
-    val trees = split.settingsTrees
-    val seq = trees.map {
-      case (statement, tree) =>
-        (extractSettingName(tree), statement)
-    }
-    seq.toMap
-  }
-
-  import scala.tools.nsc.Global
-  private def extractSettingName(tree: Global#Tree): String =
-    tree.children match {
-      case h :: _ =>
-        extractSettingName(h)
-      case _ =>
-        tree.toString()
-    }
-
 }

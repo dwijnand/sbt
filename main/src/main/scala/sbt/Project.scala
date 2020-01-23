@@ -10,46 +10,49 @@ package sbt
 import java.io.File
 import java.net.URI
 import java.util.Locale
+
 import Project._
 import BasicKeys.serverLogLevel
 import Keys.{
-  stateBuildStructure,
+  autoStartServer,
   commands,
   configuration,
+  fullServerHandlers,
   historyPath,
+  logLevel,
   projectCommand,
-  sessionSettings,
-  shellPrompt,
-  templateResolverInfos,
-  autoStartServer,
+  resolvedScoped,
+  serverAuthentication,
+  serverConnectionType,
   serverHost,
   serverLog,
   serverPort,
-  serverAuthentication,
-  serverConnectionType,
-  fullServerHandlers,
-  logLevel,
+  sessionSettings,
+  shellPrompt,
+  stateBuildStructure,
+  templateResolverInfos
 }
 import Scope.{ Global, ThisScope }
 import Def.{ Flattened, Initialize, ScopedKey, Setting }
 import sbt.internal.{
-  Load,
   BuildStructure,
+  Load,
   LoadedBuild,
   LoadedBuildUnit,
-  SettingGraph,
+  SessionSettings,
   SettingCompletions,
-  SessionSettings
+  SettingGraph
 }
-import sbt.internal.util.{ AttributeKey, AttributeMap, Dag, Relation, Settings, ~> }
+import sbt.internal.util.{ AttributeKey, AttributeMap, Dag, Relation, Settings }
 import sbt.internal.util.Types.{ const, idFun }
 import sbt.internal.util.complete.DefaultParsers
 import sbt.internal.server.ServerHandler
 import sbt.librarymanagement.Configuration
-import sbt.util.{ Show, Level }
+import sbt.util.{ Level, Show }
 import sjsonnew.JsonFormat
-
 import language.experimental.macros
+
+import scala.annotation.tailrec
 
 sealed trait ProjectDefinition[PR <: ProjectReference] {
 
@@ -545,16 +548,13 @@ object Project extends ProjectExtra {
 
   private[sbt] def checkTargets(data: Settings[Scope]): Option[String] = {
     val dups = overlappingTargets(allTargets(data))
-    if (dups.isEmpty)
-      None
-    else {
-      val dupStrs = dups map {
-        case (dir, scopes) =>
-          s"${dir.getAbsolutePath}:\n\t${scopes.mkString("\n\t")}"
-      }
+    if (dups.nonEmpty) {
+      val dupStrs =
+        dups.map { case (dir, scopes) => s"${dir.getAbsolutePath}:\n\t${scopes.mkString("\n\t")}" }
       Some(s"Overlapping output directories:${dupStrs.mkString}")
-    }
+    } else None
   }
+
   private[this] def overlappingTargets(
       targets: Seq[(ProjectRef, File)]
   ): Map[File, Seq[ProjectRef]] =
@@ -564,10 +564,7 @@ object Project extends ProjectExtra {
     import ScopeFilter._
     val allProjects = ScopeFilter(Make.inAnyProject)
     val targetAndRef = Def.setting { (Keys.thisProjectRef.value, Keys.target.value) }
-    new SettingKeyAll(Def.optional(targetAndRef)(idFun))
-      .all(allProjects)
-      .evaluate(data)
-      .flatMap(x => x)
+    new SettingKeyAll(Def.optional(targetAndRef)(idFun)).all(allProjects).evaluate(data).flatten
   }
 
   def equal(a: ScopedKey[_], b: ScopedKey[_], mask: ScopeMask): Boolean =
@@ -576,16 +573,17 @@ object Project extends ProjectExtra {
   def fillTaskAxis(scoped: ScopedKey[_]): ScopedKey[_] =
     ScopedKey(Scope.fillTaskAxis(scoped.scope, scoped.key), scoped.key)
 
-  def mapScope(f: Scope => Scope) = λ[ScopedKey ~> ScopedKey](k => ScopedKey(f(k.scope), k.key))
+  @deprecated("Exists on Init, so use Def.mapScope", "1.4.0")
+  def mapScope(f: Scope => Scope) = Def.mapScope(f)
 
   def transform(g: Scope => Scope, ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] = {
-    val f = mapScope(g)
-    ss.map(_ mapKey f mapReferenced f)
+    val f = Def.mapScope(g)
+    ss.map(_.transform(f))
   }
-  def transformRef(g: Scope => Scope, ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] = {
-    val f = mapScope(g)
-    ss.map(_ mapReferenced f)
-  }
+
+  @deprecated("No longer used", "1.4.0")
+  def transformRef(g: Scope => Scope, ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
+    ss.map(_.mapReferenced(mapScope(g)))
 
   def delegates(structure: BuildStructure, scope: Scope, key: AttributeKey[_]): Seq[ScopedKey[_]] =
     structure.delegates(scope).map(d => ScopedKey(d, key))
@@ -595,52 +593,40 @@ object Project extends ProjectExtra {
       scope: Scope,
       key: AttributeKey[_]
   ): Option[ScopedKeyData[_]] =
-    structure.data.get(scope, key) map { v =>
-      ScopedKeyData(ScopedKey(scope, key), v)
-    }
+    structure.data.get(scope, key).map(v => ScopedKeyData(ScopedKey(scope, key), v))
 
   def details(structure: BuildStructure, actual: Boolean, scope: Scope, key: AttributeKey[_])(
       implicit display: Show[ScopedKey[_]]
   ): String = {
+    def newScoped[A](sc: Option[Scope], sk: ScopedKey[A]) = sc.fold(sk)(ScopedKey(_, sk.key))
     val scoped = ScopedKey(scope, key)
-
-    val data = scopedKeyData(structure, scope, key) map { _.description } getOrElse {
-      "No entry for key."
-    }
-    val description = key.description match {
-      case Some(desc) => "Description:\n\t" + desc + "\n"; case None => ""
-    }
-
     val definingScope = structure.data.definingScope(scope, key)
-    val providedBy = definingScope match {
-      case Some(sc) => "Provided by:\n\t" + Scope.display(sc, key.label) + "\n"
-      case None     => ""
-    }
-    val definingScoped = definingScope match {
-      case Some(sc) => ScopedKey(sc, key); case None => scoped
-    }
+    val definingScoped = newScoped(definingScope, scoped)
+
+    val data = scopedKeyData(structure, scope, key).fold("No entry for key.")(_.description)
+    val description = key.description.fold("")(desc => s"Description:\n\t$desc\n")
+    val providedBy =
+      definingScope.fold("")(sc => s"Provided by:\n\t${Scope.display(sc, key.label)}\n")
+
     val comp =
       Def.compiled(structure.settings, actual)(structure.delegates, structure.scopeLocal, display)
-    val definedAt = comp get definingScoped map { c =>
-      Def.definedAtString(c.settings).capitalize
-    } getOrElse ""
+
+    val definedAt =
+      comp.get(definingScoped).fold("")(c => Def.definedAtString(c.settings).capitalize)
 
     val cMap = Def.flattenLocals(comp)
     val related = cMap.keys.filter(k => k.key == key && k.scope != scope)
-    def derivedDependencies(c: ScopedKey[_]): List[ScopedKey[_]] =
-      comp
-        .get(c)
-        .map(_.settings.flatMap(s => if (s.isDerived) s.dependencies else Nil))
-        .toList
-        .flatten
 
-    val depends = cMap.get(scoped) match {
-      case Some(c) => c.dependencies.toSet; case None => Set.empty
-    }
+    def derivedDependencies(c: ScopedKey[_]): List[ScopedKey[_]] =
+      comp.get(c).toList.flatMap { comp =>
+        comp.settings.flatMap(s => if (s.isDerived) s.dependencies else Nil)
+      }
+
+    val depends = cMap.get(scoped).fold(Set.empty[ScopedKey[_]])(_.dependencies.toSet)
     val derivedDepends: Set[ScopedKey[_]] = derivedDependencies(definingScoped).toSet
 
     val reverse = reverseDependencies(cMap, scoped)
-    val derivedReverse = reverse.filter(r => derivedDependencies(r).contains(definingScoped)).toSet
+    val derivedReverse = reverse.filter(derivedDependencies(_).contains(definingScoped)).toSet
 
     def printDepScopes(
         baseLabel: String,
@@ -662,9 +648,11 @@ object Project extends ProjectExtra {
     ) =
       if (scopes.isEmpty) ""
       else {
-        val (limited, more) =
-          if (scopes.size <= max) (scopes, "\n") else (scopes.take(max), "\n...\n")
-        limited.map(sk => prefix(sk) + display.show(sk)).mkString(label + ":\n\t", "\n\t", more)
+        val skeys = toSeq(scopes)
+        val elide = skeys.lengthCompare(max) > 0
+        val limited = if (elide) skeys.iterator.take(max) else skeys.iterator
+        val more = if (elide) "\n...\n" else "\n"
+        limited.map(sk => prefix(sk) + display.show(sk)).mkString(s"$label:\n\t", "\n\t", more)
       }
 
     data + "\n" +
@@ -676,10 +664,12 @@ object Project extends ProjectExtra {
       printScopes("Delegates", delegates(structure, scope, key)) +
       printScopes("Related", related, 10)
   }
+
   def settingGraph(structure: BuildStructure, basedir: File, scoped: ScopedKey[_])(
       implicit display: Show[ScopedKey[_]]
   ): SettingGraph =
     SettingGraph(structure, basedir, scoped, 0)
+
   def graphSettings(structure: BuildStructure, basedir: File)(
       implicit display: Show[ScopedKey[_]]
   ): Unit = {
@@ -688,6 +678,7 @@ object Project extends ProjectExtra {
     graph(true, "actual_dependencies")
     graph(false, "declared_dependencies")
   }
+
   def graphSettings(structure: BuildStructure, actual: Boolean, graphName: String, file: File)(
       implicit display: Show[ScopedKey[_]]
   ): Unit = {
@@ -695,6 +686,7 @@ object Project extends ProjectExtra {
     val keyToString = display.show _
     DotGraph.generateGraph(file, graphName, rel, keyToString, keyToString)
   }
+
   def relation(structure: BuildStructure, actual: Boolean)(
       implicit display: Show[ScopedKey[_]]
   ): Relation[ScopedKey[_], ScopedKey[_]] =
@@ -762,7 +754,10 @@ object Project extends ProjectExtra {
       projectRef: ProjectRef
   ): Seq[ProjectRef] = {
     def dependencies(map: Map[ProjectRef, Seq[ProjectRef]], id: ProjectRef): Set[ProjectRef] = {
-      def helper(map: Map[ProjectRef, Seq[ProjectRef]], acc: Set[ProjectRef]): Set[ProjectRef] =
+      @tailrec def helper(
+          map: Map[ProjectRef, Seq[ProjectRef]],
+          acc: Set[ProjectRef]
+      ): Set[ProjectRef] =
         if (acc.exists(map.contains)) {
           val (kept, rem) = map.partition { case (k, _) => acc(k) }
           helper(rem, acc ++ kept.valuesIterator.flatten)
@@ -774,7 +769,7 @@ object Project extends ProjectExtra {
       (for {
         (p, ref) <- Project.structure(state).allProjectPairs
       } yield ref -> p.dependencies.map(_.project)).toMap
-    val deps = dependencies(allProjectsDeps.toMap, projectRef)
+    val deps = dependencies(allProjectsDeps, projectRef)
     Project.structure(state).allProjectRefs.filter(p => deps(p))
   }
 
@@ -845,22 +840,19 @@ object Project extends ProjectExtra {
   implicit def projectToLocalProject(p: Project): LocalProject = LocalProject(p.id)
 
   final class RichTaskSessionVar[S](i: Def.Initialize[Task[S]]) {
-    import SessionVar.{ persistAndSet, resolveContext, set, transform => tx }
+    import SessionVar.{ persistAndSet, resolveContext => inCtx, set, transform => tx }
 
     def updateState(f: (State, S) => State): Def.Initialize[Task[S]] = i(t => tx(t, f))
 
     def storeAs(key: TaskKey[S])(implicit f: JsonFormat[S]): Def.Initialize[Task[S]] = {
-      Keys.resolvedScoped.zipWith(i) { (scoped, task) =>
-        tx(
-          task,
-          (state, value) => persistAndSet(resolveContext(key, scoped.scope, state), state, value)(f)
-        )
+      resolvedScoped.zipWith(i) { (scoped, task) =>
+        tx(task, (state, value) => persistAndSet(inCtx(key, scoped.scope, state), state, value)(f))
       }
     }
 
     def keepAs(key: TaskKey[S]): Def.Initialize[Task[S]] = {
-      i.zipWith(Keys.resolvedScoped) { (t, scoped) =>
-        tx(t, (state, value) => set(resolveContext(key, scoped.scope, state), state, value))
+      i.zipWith(resolvedScoped) { (t, scoped) =>
+        tx(t, (state, value) => set(inCtx(key, scoped.scope, state), state, value))
       }
     }
   }
@@ -877,6 +869,11 @@ object Project extends ProjectExtra {
     val name = c.Expr[String](Literal(Constant(enclosingValName)))
     reify { Project(name.splice, new File(name.splice)) }
   }
+
+  private[this] def toSeq[A](xs: Iterable[A]): Seq[A] = xs match {
+    case s: Seq[A] => s
+    case _         => xs.toStream
+  }
 }
 
 private[sbt] trait GeneratedRootProject
@@ -887,9 +884,9 @@ trait ProjectExtra {
   )(implicit ev: T => ProjectReference): Constructor =
     new Constructor(p)
 
-  implicit def classpathDependency[T](
-      p: T
-  )(implicit ev: T => ProjectReference): ClasspathDependency = ClasspathDependency(p, None)
+  implicit def classpathDependency[T](p: T)(
+      implicit ev: T => ProjectReference
+  ): ClasspathDependency = ClasspathDependency(p, None)
 
   // These used to be in Project so that they didn't need to get imported (due to Initialize being nested in Project).
   // Moving Initialize and other settings types to Def and decoupling Project, Def, and Structure means these go here for now
@@ -907,29 +904,29 @@ trait ProjectExtra {
   implicit def richTaskSessionVar[T](init: Initialize[Task[T]]): Project.RichTaskSessionVar[T] =
     new Project.RichTaskSessionVar(init)
 
-  def inThisBuild(ss: Seq[Setting[_]]): Seq[Setting[_]] =
-    inScope(ThisScope.copy(project = Select(ThisBuild)))(ss)
+  def inThisBuild(ss: Seq[Setting[_]]): Seq[Setting[_]] = inScope(ThisScope in ThisBuild)(ss)
+
+  def inRoot(ss: Seq[Setting[_]]): Seq[Setting[_]] = inScope(ThisScope in LocalRootProject)(ss)
 
   def inConfig(conf: Configuration)(ss: Seq[Setting[_]]): Seq[Setting[_]] =
-    inScope(ThisScope.copy(config = Select(conf)))((configuration :== conf) +: ss)
+    inScope(ThisScope in conf)((configuration :== conf) +: ss)
 
-  def inTask(t: Scoped)(ss: Seq[Setting[_]]): Seq[Setting[_]] =
-    inScope(ThisScope.copy(task = Select(t.key)))(ss)
+  def inTask(t: Scoped)(ss: Seq[Setting[_]]): Seq[Setting[_]] = inScope(ThisScope in t.key)(ss)
 
   def inScope(scope: Scope)(ss: Seq[Setting[_]]): Seq[Setting[_]] =
     Project.transform(Scope.replaceThis(scope), ss)
 
   private[sbt] def inThisBuild[T](i: Initialize[T]): Initialize[T] =
-    inScope(ThisScope.copy(project = Select(ThisBuild)), i)
+    inScope(ThisScope in ThisBuild, i)
 
   private[sbt] def inConfig[T](conf: Configuration, i: Initialize[T]): Initialize[T] =
-    inScope(ThisScope.copy(config = Select(conf)), i)
+    inScope(ThisScope in conf, i)
 
   private[sbt] def inTask[T](t: Scoped, i: Initialize[T]): Initialize[T] =
-    inScope(ThisScope.copy(task = Select(t.key)), i)
+    inScope(ThisScope in t.key, i)
 
   private[sbt] def inScope[T](scope: Scope, i: Initialize[T]): Initialize[T] =
-    i mapReferenced Project.mapScope(Scope.replaceThis(scope))
+    i.mapReferenced(Def.mapScope(Scope.replaceThis(scope)))
 
   /**
    * Creates a new Project.  This is a macro that expects to be assigned directly to a val.

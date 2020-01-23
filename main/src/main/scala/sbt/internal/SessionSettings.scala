@@ -8,18 +8,19 @@
 package sbt
 package internal
 
-import sbt.internal.util.{ complete, LineRange, RangePosition, Types }
-
 import java.io.File
 import java.net.URI
-import Def.{ ScopedKey, Setting }
-import Types.Endo
-import compiler.Eval
-
-import SessionSettings._
-import sbt.internal.parser.SbtRefactorings
 
 import sbt.io.IO
+
+import sbt.internal.SessionSettings._
+import sbt.internal.parser.SbtRefactorings
+import sbt.internal.util.{ LineRange, RangePosition }
+import sbt.internal.util.complete._
+import sbt.internal.util.complete.DefaultParsers._
+
+import sbt.Def.{ ScopedKey, Setting }
+import sbt.compiler.Eval
 
 /**
  * Represents (potentially) transient settings added into a build via commands/user.
@@ -41,7 +42,7 @@ final case class SessionSettings(
 ) {
 
   assert(
-    currentProject contains currentBuild,
+    currentProject.contains(currentBuild),
     s"Current build ($currentBuild) not associated with a current project."
   )
 
@@ -93,7 +94,10 @@ final case class SessionSettings(
   private[this] def merge(map: SessionMap): Seq[Setting[_]] =
     map.values.toSeq.flatten[SessionSetting].map(_._1)
 
-  private[this] def modify(map: SessionMap, onSeq: Endo[Seq[SessionSetting]]): SessionMap = {
+  private[this] def modify(
+      map: SessionMap,
+      onSeq: Seq[SessionSetting] => Seq[SessionSetting],
+  ): SessionMap = {
     val cur = current
     map.updated(cur, onSeq(map.getOrElse(cur, Nil)))
   }
@@ -324,9 +328,6 @@ save, save-all
   final class Save(val all: Boolean) extends SessionCommand
 
   final class Remove(val ranges: Seq[(Int, Int)]) extends SessionCommand
-
-  import complete._
-  import DefaultParsers._
 
   /** Parser for the session command. */
   lazy val parser =

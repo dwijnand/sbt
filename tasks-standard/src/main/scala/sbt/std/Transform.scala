@@ -15,6 +15,7 @@ import TaskExtra.{ all, existToAny }
 object Transform {
   def fromDummy[T](original: Task[T])(action: => T): Task[T] =
     Task(original.info, Pure(action _, false))
+
   def fromDummyStrict[T](original: Task[T], value: T): Task[T] = fromDummy(original)(value)
 
   implicit def to_~>|[K[_], V[_]](map: RMap[K, V]): K ~>| V = new (K ~>| V) {
@@ -25,7 +26,9 @@ object Transform {
     def ::[T](tav: (Task[T], T)): DummyTaskMap =
       DummyTaskMap(new TaskAndValue(tav._1, tav._2) :: mappings)
   }
+
   final class TaskAndValue[T](val task: Task[T], val value: T)
+
   def dummyMap(dummyMap: DummyTaskMap): Task ~>| Task = {
     val pmap = new DelegatingPMap[Task, Task](new collection.mutable.ListMap)
     def add[T](dummy: TaskAndValue[T]): Unit = {
@@ -35,11 +38,11 @@ object Transform {
     pmap
   }
 
-  /** Applies `map`, returning the result if defined or returning the input unchanged otherwise.*/
+  /** Applies `map`, returning the result if defined or returning the input unchanged otherwise. */
   implicit def getOrId(map: Task ~>| Task): Task ~> Task =
     λ[Task ~> Task](in => map(in).getOrElse(in))
 
-  def apply(dummies: DummyTaskMap) = taskToNode(getOrId(dummyMap(dummies)))
+  def apply(dummies: DummyTaskMap) = taskToNode(dummyMap(dummies))
 
   def taskToNode(pre: Task ~> Task): NodeView[Task] = new NodeView[Task] {
     def apply[T](t: Task[T]): Node[Task, T] = pre(t).work match {

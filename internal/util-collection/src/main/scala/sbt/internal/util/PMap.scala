@@ -42,7 +42,6 @@ trait PMap[K[_], V[_]] extends (K ~> V) with RMap[K, V] {
 }
 
 object PMap {
-  implicit def toFunction[K[_], V[_]](map: PMap[K, V]): K[_] => V[_] = k => map(k)
   def empty[K[_], V[_]]: PMap[K, V] = new DelegatingPMap[K, V](new mutable.HashMap)
 }
 

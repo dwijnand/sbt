@@ -10,8 +10,8 @@ package internal
 package parser
 
 import java.io.File
-import sbt.internal.util.MessageOnlyException
 import scala.io.Source
+import sbt.internal.util.MessageOnlyException
 
 class ErrorSpec extends AbstractSpec {
   implicit val splitter: SplitExpressions.SplitExpression = EvaluateConfigurations.splitExpressions
@@ -25,17 +25,13 @@ class ErrorSpec extends AbstractSpec {
         print(s"Processing ${file.getName}: ")
         val buildSbt = Source.fromFile(file).getLines().mkString("\n")
         SbtParser(file, buildSbt.linesIterator.toSeq) must throwA[MessageOnlyException]
-          .like {
-            case exp =>
-              val message = exp.getMessage
-              println(s"${exp.getMessage}")
-              message must contain(file.getName)
-          }
+          .like { case t => t.getMessage must contain(file.getName) }
         containsLineNumber(buildSbt)
       }
     }
 
     "handle wrong parsing " in {
+      import MissingBracketHandler.findMissingText
       val buildSbt =
         """
           |libraryDependencies ++= Seq("a" % "b" % "2") map {
@@ -44,13 +40,8 @@ class ErrorSpec extends AbstractSpec {
           | } /* */ //
           |}
         """.stripMargin
-      MissingBracketHandler.findMissingText(
-        buildSbt,
-        buildSbt.length,
-        2,
-        "fake.txt",
-        new MessageOnlyException("fake")
-      ) must throwA[MessageOnlyException]
+      findMissingText(buildSbt, buildSbt.length, 2, "fake.sbt", new Exception("fake")) must
+        throwA[MessageOnlyException]
     }
 
     "handle xml error " in {
@@ -59,14 +50,8 @@ class ErrorSpec extends AbstractSpec {
           |val a = <a/><b/>
           |val s = '
         """.stripMargin
-      SbtParser(SbtParser.FAKE_FILE, buildSbt.linesIterator.toSeq) must throwA[
-        MessageOnlyException
-      ].like {
-        case exp =>
-          val message = exp.getMessage
-          println(s"${exp.getMessage}")
-          message must contain(SbtParser.FAKE_FILE.getName)
-      }
+      SbtParser(SbtParser.FAKE_FILE, buildSbt.linesIterator.toSeq) must throwA[MessageOnlyException]
+        .like { case exp => exp.getMessage must contain(SbtParser.FAKE_FILE.getName) }
     }
 
   }

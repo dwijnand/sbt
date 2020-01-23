@@ -7,7 +7,7 @@
 
 package sbt
 
-import scala.util.control.NonFatal
+import scala.util.Try
 
 import sbt.internal.util.{ AttributeMap, IMap, Types }
 
@@ -35,17 +35,17 @@ object SessionVar {
   }
 
   def persist[T](key: ScopedKey[Task[T]], state: State, value: T)(implicit f: JsonFormat[T]): Unit =
-    Project.structure(state).streams(state).use(key)(s => s.getOutput(DefaultDataID).write(value))
+    Project.structure(state).streams(state).use(key)(_.getOutput(DefaultDataID).write(value))
 
   def clear(s: State): State = s.put(sessionVars, SessionVar.emptyMap)
 
   def get[T](key: ScopedKey[Task[T]], state: State): Option[T] =
-    orEmpty(state get sessionVars) get key
+    orEmpty(state.get(sessionVars)).get(key)
 
   def set[T](key: ScopedKey[Task[T]], state: State, value: T): State =
-    state.update(sessionVars)(om => orEmpty(om) put (key, value))
+    state.update(sessionVars)(orEmpty(_).put(key, value))
 
-  def orEmpty(opt: Option[Map]) = opt getOrElse emptyMap
+  def orEmpty(opt: Option[Map]) = opt.getOrElse(emptyMap)
 
   def transform[S](task: Task[S], f: (State, S) => State): Task[S] = {
     val g = (s: S, map: AttributeMap) => map.put(Keys.transformState, (state: State) => f(state, s))
@@ -64,9 +64,7 @@ object SessionVar {
 
   def read[T](key: ScopedKey[Task[T]], state: State)(implicit f: JsonFormat[T]): Option[T] =
     Project.structure(state).streams(state).use(key) { s =>
-      try {
-        Some(s.getInput(key, DefaultDataID).read[T])
-      } catch { case NonFatal(_) => None }
+      Try(s.getInput(key, DefaultDataID).read[T]).toOption
     }
 
   def load[T](key: ScopedKey[Task[T]], state: State)(implicit f: JsonFormat[T]): Option[T] =
@@ -74,16 +72,15 @@ object SessionVar {
 
   def loadAndSet[T](key: ScopedKey[Task[T]], state: State, setIfUnset: Boolean = true)(
       implicit f: JsonFormat[T]
-  ): (State, Option[T]) =
+  ): (State, Option[T]) = {
     get(key, state) match {
       case s: Some[T] => (state, s)
-      case None =>
-        read(key, state)(f) match {
+      case _ =>
+        read(key, state) match {
           case s @ Some(t) =>
-            val newState =
-              if (setIfUnset && get(key, state).isDefined) state else set(key, state, t)
-            (newState, s)
-          case None => (state, None)
+            (if (setIfUnset && get(key, state).isDefined) state else set(key, state, t), s)
+          case _ => (state, None)
         }
     }
+  }
 }

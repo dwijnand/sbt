@@ -8,20 +8,24 @@
 package sbt
 package compiler
 
-import scala.collection.mutable.ListBuffer
-import scala.tools.nsc.{ ast, io, reporters, CompilerCommand, Global, Phase, Settings }
-import io.{ AbstractFile, PlainFile, VirtualDirectory }
-import ast.parser.Tokens
-import reporters.{ ConsoleReporter, Reporter }
-import scala.reflect.internal.util.{ AbstractFileClassLoader, BatchSourceFile }
-import Tokens.{ EOF, NEWLINE, NEWLINES, SEMI }
-import java.io.{ File, FileNotFoundException }
+import java.io.{ File, FileNotFoundException, FilenameFilter }
 import java.nio.ByteBuffer
 import java.net.URLClassLoader
 import java.security.MessageDigest
-import Eval.{ getModule, getValue, WrapValName }
+
+import scala.annotation.tailrec
+import scala.collection.mutable.ListBuffer
+
+import scala.reflect.internal.util.{ AbstractFileClassLoader, BatchSourceFile }
+
+import scala.tools.nsc.{ CompilerCommand, Global, Phase, Settings }
+import scala.tools.nsc.ast.parser.Tokens.{ EOF, NEWLINE, NEWLINES, SEMI }
+import scala.tools.nsc.io.{ AbstractFile, PlainFile, VirtualDirectory }
+import scala.tools.nsc.reporters.{ ConsoleReporter, Reporter }
 
 import sbt.io.{ DirectoryFilter, FileFilter, GlobFilter, Hash, IO, Path }
+
+import sbt.compiler.Eval.{ getModule, getValue, WrapValName }
 
 // TODO: provide a way to cleanup backing directory
 
@@ -61,6 +65,7 @@ final class EvalDefinitions(
 }
 
 final class EvalException(msg: String) extends RuntimeException(msg)
+
 // not thread safe, since it reuses a Global instance
 final class Eval(
     optionsNoncp: Seq[String],
@@ -70,9 +75,11 @@ final class Eval(
 ) {
   def this(mkReporter: Settings => Reporter, backing: Option[File]) =
     this(Nil, IO.classLocationPath[Product].toFile :: Nil, mkReporter, backing)
+
   def this() = this(s => new ConsoleReporter(s), None)
 
   backing.foreach(IO.createDirectory)
+
   val classpathString = Path.makeString(classpath ++ backing.toList)
   val options = "-cp" +: classpathString +: optionsNoncp
 
@@ -81,6 +88,7 @@ final class Eval(
     new CompilerCommand(options.toList, s) // this side-effects on Settings..
     s
   }
+
   lazy val reporter = mkReporter(settings)
 
   /**
@@ -89,17 +97,18 @@ final class Eval(
    */
   final class EvalGlobal(settings: Settings, reporter: Reporter)
       extends Global(settings, reporter) {
-    override def currentRun: Run = curRun match {
-      case null => super.currentRun // https://github.com/scala/bug/issues/11381
-      case r    => r
-    }
+
+    // scala/bug#11381
+    override def currentRun: Run = if (curRun == null) super.currentRun else curRun
+
     var curRun: Run = null
   }
+
   lazy val global: EvalGlobal = new EvalGlobal(settings, reporter)
   import global._
 
   private[sbt] def unlinkDeferred(): Unit = {
-    toUnlinkLater foreach unlink
+    toUnlinkLater.foreach(unlink)
     toUnlinkLater = Nil
   }
 
@@ -121,9 +130,8 @@ final class Eval(
         val tpt: Tree = expectedType(tpeName)
         augment(parser, importTrees, tree, tpt, moduleName)
       }
-      def extra(run: Run, unit: CompilationUnit) = enteringPhase(run.typerPhase.next) {
-        (new TypeExtractor).getType(unit.body)
-      }
+      def extra(run: Run, unit: CompilationUnit) =
+        enteringPhase(run.typerPhase.next)(new TypeExtractor().getType(unit.body))
       def read(file: File) = IO.read(file)
       def write(value: String, f: File) = IO.write(f, value)
       def extraHash = ""
@@ -132,6 +140,7 @@ final class Eval(
     val value = (cl: ClassLoader) => getValue[Any](i.enclosingModule, i.loader(cl))
     new EvalResult(i.extra, value, i.generated, i.enclosingModule)
   }
+
   def evalDefinitions(
       definitions: Seq[(String, scala.Range)],
       imports: EvalImports,
@@ -178,24 +187,12 @@ final class Eval(
 
     // This is a hot path.
     val digester = MessageDigest.getInstance("SHA")
-    content foreach { c =>
-      digester.update(bytes(c))
-    }
-    backing foreach { x =>
-      digester.update(fileExistsBytes(x))
-    }
-    options foreach { o =>
-      digester.update(bytes(o))
-    }
-    classpath foreach { f =>
-      fileModifiedHash(f, digester)
-    }
-    imports.strings.map(_._1) foreach { x =>
-      digester.update(bytes(x))
-    }
-    tpeName foreach { x =>
-      digester.update(bytes(x))
-    }
+    content.foreach(c => digester.update(bytes(c)))
+    backing.foreach(x => digester.update(fileExistsBytes(x)))
+    options.foreach(o => digester.update(bytes(o)))
+    classpath.foreach(f => fileModifiedHash(f, digester))
+    imports.strings.map(_._1).foreach(x => digester.update(bytes(x)))
+    tpeName.foreach(x => digester.update(bytes(x)))
     digester.update(bytes(ev.extraHash))
     val d = digester.digest()
 
@@ -206,11 +203,13 @@ final class Eval(
       reporter.reset
       ev.makeUnit
     }
-    lazy val run = new Run {
-      override def units = (unit :: Nil).iterator
-    }
+
+    lazy val run = new Run { override def units = (unit :: Nil).iterator }
+
     def unlinkAll(): Unit =
-      for ((sym, _) <- run.symSource) if (ev.unlink) unlink(sym) else toUnlinkLater ::= sym
+      for ((sym, _) <- run.symSource)
+        if (ev.unlink) unlink(sym)
+        else toUnlinkLater ::= sym
 
     val (extra, loader) = backing match {
       case Some(back) if classExists(back, moduleName) =>
@@ -219,19 +218,18 @@ final class Eval(
         val extra = ev.read(cacheFile(back, moduleName))
         (extra, loader)
       case _ =>
-        try {
-          compileAndLoad(run, unit, imports, backing, moduleName, ev)
-        } finally {
-          unlinkAll()
-        }
+        try compileAndLoad(run, unit, imports, backing, moduleName, ev)
+        finally unlinkAll()
     }
 
     val generatedFiles = getGeneratedFiles(backing, moduleName)
     new EvalIntermediate(extra, loader, generatedFiles, moduleName)
   }
+
   // location of the cached type or definition information
   private[this] def cacheFile(base: File, moduleName: String): File =
-    new File(base, moduleName + ".cache")
+    new File(base, s"$moduleName.cache")
+
   private[this] def compileAndLoad[T](
       run: Run,
       unit: CompilationUnit,
@@ -248,12 +246,10 @@ final class Eval(
     val importTrees = parseImports(imports)
     unit.body = ev.unitBody(unit, importTrees, moduleName)
 
-    def compile(phase: Phase): Unit = {
+    @tailrec def compile(phase: Phase): Unit = {
       globalPhase = phase
-      if (phase == null || phase == phase.next || reporter.hasErrors)
-        ()
-      else {
-        enteringPhase(phase) { phase.run }
+      if (phase != null && phase != phase.next && !reporter.hasErrors) {
+        enteringPhase(phase)(phase.run)
         compile(phase.next)
       }
     }
@@ -268,18 +264,14 @@ final class Eval(
   }
 
   private[this] def expectedType(tpeName: Option[String]): Tree =
-    tpeName match {
-      case Some(tpe) => parseType(tpe)
-      case None      => TypeTree(NoType)
-    }
+    tpeName.fold[Tree](TypeTree(NoType))(parseType)
 
   private[this] def outputDirectory(backing: Option[File]): AbstractFile =
-    backing match {
-      case None => new VirtualDirectory("<virtual>", None); case Some(dir) => new PlainFile(dir)
-    }
+    backing.fold[AbstractFile](new VirtualDirectory("<virtual>", None))(new PlainFile(_))
 
   def load(dir: AbstractFile, moduleName: String): ClassLoader => Any =
     parent => getValue[Any](moduleName, new AbstractFileClassLoader(dir, parent))
+
   def loadPlain(dir: File, moduleName: String): ClassLoader => Any =
     parent => getValue[Any](moduleName, new URLClassLoader(Array(dir.toURI.toURL), parent))
 
@@ -322,7 +314,9 @@ final class Eval(
 
   private[this] final class TypeExtractor extends Traverser {
     private[this] var result = ""
+
     def getType(t: Tree) = { result = ""; traverse(t); result }
+
     override def traverse(tree: Tree): Unit = tree match {
       case d: DefDef if d.symbol.nameString == WrapValName =>
         result = d.symbol.tpe.finalResultType.toString
@@ -333,12 +327,12 @@ final class Eval(
   /** Tree traverser that obtains the names of vals in a top-level module whose type is a subtype of one of `types`.*/
   private[this] final class ValExtractor(tpes: Set[String]) extends Traverser {
     private[this] var vals = List[String]()
+
     def getVals(t: Tree): List[String] = { vals = Nil; traverse(t); vals }
-    def isAcceptableType(tpe: Type): Boolean = {
-      tpe.baseClasses.exists { sym =>
-        tpes.contains(sym.fullName)
-      }
-    }
+
+    def isAcceptableType(tpe: Type): Boolean =
+      tpe.baseClasses.exists(sym => tpes.contains(sym.fullName))
+
     override def traverse(tree: Tree): Unit = tree match {
       case ValDef(_, n, actualTpe, _)
           if isTopLevelModule(tree.symbol.owner) && isAcceptableType(actualTpe.tpe) =>
@@ -346,6 +340,7 @@ final class Eval(
       case _ => super.traverse(tree)
     }
   }
+
   // inlined implemented of Symbol.isTopLevelModule that was removed in e5b050814deb2e7e1d6d05511d3a6cb6b013b549
   private[this] def isTopLevelModule(s: Symbol): Boolean =
     s.hasFlag(reflect.internal.Flags.MODULE) && s.owner.isPackageClass
@@ -354,19 +349,17 @@ final class Eval(
       val extra: T,
       val loader: ClassLoader => ClassLoader,
       val generated: Seq[File],
-      val enclosingModule: String
+      val enclosingModule: String,
   )
 
   private[this] def classExists(dir: File, name: String) = (new File(dir, name + ".class")).exists
+
   // TODO: use the code from Analyzer
   private[this] def getGeneratedFiles(backing: Option[File], moduleName: String): Seq[File] =
-    backing match {
-      case None      => Nil
-      case Some(dir) => dir listFiles moduleFileFilter(moduleName)
-    }
-  private[this] def moduleFileFilter(moduleName: String) = new java.io.FilenameFilter {
-    def accept(dir: File, s: String) =
-      (s contains moduleName)
+    backing.fold(Seq.empty[File])(_.listFiles(moduleFileFilter(moduleName)))
+
+  private[this] def moduleFileFilter(moduleName: String) = new FilenameFilter {
+    def accept(dir: File, s: String) = s.contains(moduleName)
   }
 
   private[this] class ParseErrorStrings(
@@ -375,12 +368,14 @@ final class Eval(
       val missingBlank: String,
       val extraSemi: String
   )
+
   private[this] def definitionErrorStrings = new ParseErrorStrings(
     base = "Error parsing definition.",
     extraBlank = "  Ensure that there are no blank lines within a definition.",
     missingBlank = "  Ensure that definitions are separated by blank lines.",
     extraSemi = "  A trailing semicolon is not permitted for standalone definitions."
   )
+
   private[this] def settingErrorStrings = new ParseErrorStrings(
     base = "Error parsing expression.",
     extraBlank = "  Ensure that there are no blank lines within a setting.",
@@ -424,8 +419,10 @@ final class Eval(
     checkError("Error parsing expression type.")
     tpt0
   }
+
   private[this] def parseImports(imports: EvalImports): Seq[Tree] =
     imports.strings flatMap { case (s, line) => parseImport(mkUnit(imports.srcName, line, s)) }
+
   private[this] def parseImport(importUnit: CompilationUnit): Seq[Tree] = {
     val parser = new syntaxAnalyzer.UnitParser(importUnit)
     val trees: Seq[Tree] = parser.importClause()
@@ -433,6 +430,7 @@ final class Eval(
     checkError("Error parsing imports for expression.")
     trees
   }
+
   private[this] def parseDefinitions(du: CompilationUnit): Seq[Tree] =
     parse(du, definitionErrorStrings, parseDefinitions)._2
 
@@ -476,13 +474,16 @@ final class Eval(
 
     /** Extra information to include in the hash'd object name to help avoid collisions. */
     def extraHash: String
+
   }
 
   val DefaultStartLine = 0
+
   private[this] def makeModuleName(hash: String): String = "$" + Hash.halve(hash)
   private[this] def noImports = new EvalImports(Nil, "")
   private[this] def mkUnit(srcName: String, firstLine: Int, s: String) =
     new CompilationUnit(new EvalSourceFile(srcName, firstLine, s))
+
   private[this] def checkError(label: String) =
     if (reporter.hasErrors) throw new EvalException(label)
 
@@ -498,7 +499,7 @@ final class Eval(
    */
   private[this] def mkDefsUnit(
       srcName: String,
-      definitions: Seq[(String, scala.Range)]
+      definitions: Seq[(String, Range)]
   ): (CompilationUnit, Seq[CompilationUnit]) = {
     def fragmentUnit(content: String, lineMap: Array[Int]) =
       new CompilationUnit(fragmentSourceFile(srcName, content, lineMap))
@@ -515,7 +516,7 @@ final class Eval(
       lines ++= (range.end :: range.end :: Nil)
     }
     val fullUnit = fragmentUnit(fullContent.toString, lines.toArray)
-    (fullUnit, defs.toSeq)
+    (fullUnit, defs)
   }
 
   /**
@@ -528,10 +529,11 @@ final class Eval(
         super.lineToOffset(lineMap.indexWhere(_ == line) max 0)
       override def offsetToLine(offset: Int): Int = index(lineMap, super.offsetToLine(offset))
       // the SourceFile attribute is populated from this method, so we are required to only return the name
-      override def toString = new File(srcName).getName
       private[this] def index(a: Array[Int], i: Int): Int = if (i < 0 || i >= a.length) 0 else a(i)
+      override def toString = new File(srcName).getName
     }
 }
+
 private[sbt] object Eval {
   def optBytes[T](o: Option[T])(f: T => Array[Byte]): Array[Byte] = seqBytes(o.toSeq)(f)
   def stringSeqBytes(s: Seq[String]): Array[Byte] = seqBytes(s)(bytes)
@@ -552,22 +554,19 @@ private[sbt] object Eval {
 
   // This uses NIO instead of the JNA-based IO.getModifiedTimeOrZero for speed
   def getModifiedTimeOrZero(f: File): Long =
-    try {
-      sbt.io.JavaMilli.getModifiedTime(f.getPath)
-    } catch {
-      case _: FileNotFoundException => 0L
-    }
+    try sbt.io.JavaMilli.getModifiedTime(f.getPath)
+    catch { case _: FileNotFoundException => 0L }
 
-  def fileExistsBytes(f: File): Array[Byte] =
-    bytes(f.exists) ++
-      bytes(f.getAbsolutePath)
+  def fileExistsBytes(f: File): Array[Byte] = bytes(f.exists) ++ bytes(f.getAbsolutePath)
 
   def bytes(s: String): Array[Byte] = s getBytes "UTF-8"
+
   def bytes(l: Long): Array[Byte] = {
     val buffer = ByteBuffer.allocate(8)
     buffer.putLong(l)
     buffer.array
   }
+
   def bytes(i: Int): Array[Byte] = {
     val buffer = ByteBuffer.allocate(4)
     buffer.putInt(i)
